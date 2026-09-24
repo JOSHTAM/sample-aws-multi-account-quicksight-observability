@@ -1454,20 +1454,62 @@ FROM
         LIMIT 1
     ) lr ON TRUE;
 
---50. System health overview (auto-populated composite per-system health rollup)
+--50. System health overview (auto-populated per-system health rollup)
 -- Backs the dashboard "system_health_overview" dataset that drives the Overview
 -- sheet health-score cards. One row per system (product), computed live from the
 -- real collected data: alarms, security findings, canaries, and cost. Replaces the
 -- previously hand-seeded system_health_overview table.
 --
--- health_percentage is a weighted composite of:
---   * alarm health      (share of monitored alarms not in ALARM state)
---   * security health   (penalised by critical/high/medium findings)
---   * canary health     (share of canaries passing their latest run)
--- total_checks / passing_checks express the same as an absolute count so the
--- dashboard can show "N/M" style labels.
+-- The scoring model is a TRANSPARENT, penalty-based deduction (start at 100, lose
+-- points per active problem) with the point values held as named constants in the
+-- `weights` CTE, so a customer can read the score straight off the tiles and can
+-- reconfigure it in exactly one place. Full model note is inline below and the
+-- self-serve guide is docs/quicksight/health-scoring.md.
 CREATE OR REPLACE VIEW system_health_overview AS
-WITH sys AS (
+--
+-- ============================================================================
+-- SCORING MODEL (transparent, penalty-based, self-serve configurable)
+-- ============================================================================
+-- Every system starts at a perfect 100 and LOSES points for each real, active
+-- problem currently observed. The score is therefore fully explainable: a
+-- reader can always reconstruct it from the tiles ("3 High findings = -24").
+--
+--   health_percentage = GREATEST(0, 100
+--        - PENALTY_ALARM_FIRING     * (# CloudWatch alarms in ALARM state)
+--        - PENALTY_FINDING_CRITICAL * (# CRITICAL security findings)
+--        - PENALTY_FINDING_HIGH     * (# HIGH security findings)
+--        - PENALTY_FINDING_MEDIUM   * (# MEDIUM security findings)
+--        - PENALTY_CANARY_DOWN      * (# canaries failing their latest run))
+--
+-- WHY THESE SIGNALS (and not others):
+--   * Alarm STATE is authoritative and real. CloudWatch alarms have NO native
+--     "severity" attribute, so we DO NOT split alarms by severity here -- an
+--     alarm in ALARM state is the real operational-incident signal. Alarms in
+--     INSUFFICIENT_DATA are NOT penalised: that state means "not enough data to
+--     judge" (new/low-traffic alarms), not "unhealthy". It is surfaced
+--     separately (alarm_warning) as a monitoring-coverage nudge.
+--   * Security finding severities ARE real (Security Hub / GuardDuty / Inspector
+--     Severity.Label), so they drive graded penalties.
+--   * Canary pass/fail is real (CloudWatch Synthetics).
+--   * Resource inventory (buckets, functions, subnets) is NOT part of the score:
+--     it is a count of things that exist, not a health signal, and inflated the
+--     old denominator (the misleading "13/226"). It is still exposed as
+--     resource_total / resource_healthy for the detail sheets.
+--
+-- TO RECONFIGURE THE SCORE: change the penalty constants in the `weights` CTE
+-- below. That is the ONLY place the numbers live. See
+-- docs/quicksight/health-scoring.md for a step-by-step guide and the
+-- band / colour / icon thresholds that live in the QuickSight analysis.
+-- ----------------------------------------------------------------------------
+WITH weights AS (
+    SELECT
+        20::numeric AS penalty_alarm_firing,      -- per CloudWatch alarm in ALARM state
+        20::numeric AS penalty_finding_critical,  -- per CRITICAL security finding
+         5::numeric AS penalty_finding_high,      -- per HIGH security finding
+         1::numeric AS penalty_finding_medium,    -- per MEDIUM security finding
+        20::numeric AS penalty_canary_down        -- per canary failing its latest run
+),
+sys AS (
     -- One system (product) per row, with the set of account ids that belong to it
     SELECT
         p.id                        AS product_id,
@@ -1480,11 +1522,18 @@ WITH sys AS (
     GROUP BY p.id, p.name
 ),
 alarm_agg AS (
+    -- Real CloudWatch alarm STATE only. We deliberately ignore alarms.severity
+    -- because CloudWatch alarms have no native severity (the collector never
+    -- sends one; the loader defaults every alarm to 'Medium'), so any severity
+    -- split would be fiction. State is the honest signal:
+    --   ALARM             -> actively firing  -> "Critical Alarms" tile
+    --   INSUFFICIENT_DATA -> unknown/coverage -> "Warnings" tile (not penalised)
+    --   OK                -> healthy
     SELECT pa.product_id,
-        COUNT(*)                                                          AS alarm_total,
-        COUNT(*) FILTER (WHERE al.state = 'OK')                           AS alarm_ok,
-        COUNT(*) FILTER (WHERE al.state = 'ALARM' AND al.severity IN ('Medium','Low')) AS alarm_warning,
-        COUNT(*) FILTER (WHERE al.state = 'ALARM' AND al.severity IN ('Critical','High')) AS alarm_critical
+        COUNT(*)                                                     AS alarm_total,
+        COUNT(*) FILTER (WHERE al.state = 'OK')                      AS alarm_ok,
+        COUNT(*) FILTER (WHERE al.state = 'INSUFFICIENT_DATA')       AS alarm_warning,
+        COUNT(*) FILTER (WHERE al.state = 'ALARM')                   AS alarm_critical
     FROM alarms al
     JOIN product_accounts pa ON pa.account_id = al.account_id
     GROUP BY pa.product_id
@@ -1507,9 +1556,24 @@ canary_agg AS (
     GROUP BY pa.product_id
 ),
 res_agg AS (
+    -- Resource inventory. NOT part of the health score (see model note above);
+    -- exposed only for the detail sheets. A collected resource is counted
+    -- HEALTHY unless it reports an explicitly unhealthy/terminal state. Many
+    -- resource types have no lifecycle "state" at all (Lambda functions, S3
+    -- buckets report NULL) and healthy-state spellings vary by service and case
+    -- (running / available / active / Active / Online / ACTIVE ...), so we
+    -- invert the test: healthy = NOT in a small, well-known bad-state set
+    -- (case-insensitive).
     SELECT pa.product_id,
         COUNT(*)                                              AS resource_total,
-        COUNT(*) FILTER (WHERE sr.state IN ('running','available','active','Online')) AS resource_healthy
+        COUNT(*) FILTER (
+            WHERE sr.state IS NULL
+               OR LOWER(sr.state) NOT IN (
+                    'stopped','stopping','terminated','terminating','shutting-down',
+                    'failed','error','impaired','unhealthy','deleting','deleted',
+                    'inactive','disabled','unavailable','degraded','insufficient-data'
+               )
+        )                                                     AS resource_healthy
     FROM service_resources sr
     JOIN product_accounts pa ON pa.account_id = sr.account_id
     GROUP BY pa.product_id
@@ -1534,29 +1598,34 @@ SELECT
     sys.product_id                                              AS id,
     sys.system_name                                             AS system_name,
     sys.account_id                                              AS account_id,
-    -- total_checks = every discrete signal we evaluate; passing_checks = the healthy ones
-    (COALESCE(aa.alarm_total,0) + COALESCE(ca.canary_total,0) + COALESCE(ra.resource_total,0)) AS total_checks,
-    (COALESCE(aa.alarm_ok,0) + COALESCE(ca.canary_passing,0) + COALESCE(ra.resource_healthy,0)) AS passing_checks,
-    -- weighted composite health percentage (0-100), robust to missing categories
-    ROUND(
-        100.0 * (
-              0.5 * (CASE WHEN COALESCE(aa.alarm_total,0) = 0 THEN 1
-                          ELSE COALESCE(aa.alarm_ok,0)::numeric / aa.alarm_total END)
-            + 0.3 * (CASE WHEN (COALESCE(sa.security_findings_critical,0)
-                                 + COALESCE(sa.security_findings_high,0)
-                                 + COALESCE(sa.security_findings_medium,0)) = 0 THEN 1
-                          ELSE GREATEST(0, 1 - (
-                                 (3*COALESCE(sa.security_findings_critical,0)
-                                 + 2*COALESCE(sa.security_findings_high,0)
-                                 + COALESCE(sa.security_findings_medium,0))::numeric
-                                 / NULLIF(10 * GREATEST(1, array_length(sys.account_pks,1)),0))) END)
-            + 0.2 * (CASE WHEN COALESCE(ca.canary_total,0) = 0 THEN 1
-                          ELSE COALESCE(ca.canary_passing,0)::numeric / ca.canary_total END)
-        ), 1)                                                   AS health_percentage,
+    -- total_checks  = meaningful, judgeable health signals (NOT raw inventory):
+    --                 alarms with a definite state (OK or ALARM) + canaries
+    --                 + the four graded security-finding checks that apply.
+    -- passing_checks = of those, the ones currently healthy.
+    -- These back the "N/M healthy" label and are intentionally decoupled from
+    -- resource_total so the label is a health count, not an inventory count.
+    (   COALESCE(aa.alarm_ok,0) + COALESCE(aa.alarm_critical,0)
+      + COALESCE(ca.canary_total,0)
+      + (CASE WHEN COALESCE(sa.security_findings_critical,0) > 0 THEN 1 ELSE 0 END)
+      + (CASE WHEN COALESCE(sa.security_findings_high,0)     > 0 THEN 1 ELSE 0 END)
+      + (CASE WHEN COALESCE(sa.security_findings_medium,0)   > 0 THEN 1 ELSE 0 END)
+    )                                                           AS total_checks,
+    (   COALESCE(aa.alarm_ok,0)
+      + COALESCE(ca.canary_passing,0)
+    )                                                           AS passing_checks,
+    -- Transparent penalty-based health (0-100). See model note above.
+    GREATEST(0,
+        100
+        - w.penalty_alarm_firing     * COALESCE(aa.alarm_critical,0)
+        - w.penalty_finding_critical * COALESCE(sa.security_findings_critical,0)
+        - w.penalty_finding_high     * COALESCE(sa.security_findings_high,0)
+        - w.penalty_finding_medium   * COALESCE(sa.security_findings_medium,0)
+        - w.penalty_canary_down      * (COALESCE(ca.canary_total,0) - COALESCE(ca.canary_passing,0))
+    )::numeric                                                  AS health_percentage,
     COALESCE(aa.alarm_total,0)                                  AS alarm_total,
     COALESCE(aa.alarm_ok,0)                                     AS alarm_ok,
-    COALESCE(aa.alarm_warning,0)                                AS alarm_warning,
-    COALESCE(aa.alarm_critical,0)                               AS alarm_critical,
+    COALESCE(aa.alarm_warning,0)                                AS alarm_warning,     -- alarms in INSUFFICIENT_DATA
+    COALESCE(aa.alarm_critical,0)                               AS alarm_critical,    -- alarms in ALARM state
     COALESCE(sa.security_findings_critical,0)                   AS security_findings_critical,
     COALESCE(sa.security_findings_high,0)                       AS security_findings_high,
     COALESCE(sa.security_findings_medium,0)                     AS security_findings_medium,
@@ -1571,6 +1640,7 @@ SELECT
     COALESCE(ca.canary_total,0)                                 AS canary_total,
     COALESCE(ca.canary_passing,0)                               AS canary_passing
 FROM sys
+    CROSS JOIN weights   w
     LEFT JOIN alarm_agg  aa ON aa.product_id = sys.product_id
     LEFT JOIN sec_agg    sa ON sa.product_id = sys.product_id
     LEFT JOIN canary_agg ca ON ca.product_id = sys.product_id

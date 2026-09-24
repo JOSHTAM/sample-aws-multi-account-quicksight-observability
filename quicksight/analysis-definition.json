@@ -19652,12 +19652,12 @@
             {
                 "DataSetIdentifier": "system_health_overview",
                 "Name": "alert_line_1",
-                "Expression": "/*\n(AI generated) ifelse(\n    alarm_critical > 0, \"🔴 \" + toString(alarm_critical) + \" CRIT\",\n    security_findings_critical > 0, \"🔴 \" + toString(security_findings_critical) + \" CRIT\",\n    \"🟢 Clear\"\n)\n\n*/\nifelse({alarm_critical} > 0, concat(\"🔴 \", toString({alarm_critical}), \" CRIT\"), {security_findings_critical} > 0, concat(\"🔴 \", toString({security_findings_critical}), \" CRIT\"), \"🟢 Clear\")"
+                "Expression": "/* Critical Alarms tile: real critical operational signal. alarm_critical = number of CloudWatch alarms currently in ALARM state (NOT a severity split - CloudWatch alarms have no native severity). Also flags CRITICAL security findings. '🟢 Clear' when nothing is firing. See docs/quicksight/health-scoring.md */\nifelse({alarm_critical} > 0, concat(\"🔴 \", toString({alarm_critical}), \" CRIT\"), {security_findings_critical} > 0, concat(\"🔴 \", toString({security_findings_critical}), \" CRIT\"), \"🟢 Clear\")"
             },
             {
                 "DataSetIdentifier": "system_health_overview",
                 "Name": "alert_line_2",
-                "Expression": "/*\n(AI generated) ifelse(\n    alarm_warning > 0, \"🟡 \" + toString(alarm_warning) + \" WARN\",\n    security_findings_high > 0, \"🟡 \" + toString(security_findings_high) + \" HIGH\",\n    \"\"\n)\n\n*/\nifelse({alarm_warning} > 0, concat(\"🟡 \", toString({alarm_warning}), \" WARN\"), {security_findings_high} > 0, concat(\"🟡 \", toString({security_findings_high}), \" HIGH\"), \"-\")"
+                "Expression": "/* Warnings tile: the highest-priority NON-critical attention item. Priority order: HIGH findings, then MEDIUM findings, then alarms in INSUFFICIENT_DATA state (a monitoring-coverage gap, shown as 'NO DATA' - real, but not a failure). '-' when nothing needs attention. Note alarm_warning counts INSUFFICIENT_DATA alarms; alarm_critical (Critical Alarms tile) counts alarms in ALARM state. See docs/quicksight/health-scoring.md */\nifelse({security_findings_high} > 0, concat(\"🟡 \", toString({security_findings_high}), \" HIGH\"), {security_findings_medium} > 0, concat(\"🟡 \", toString({security_findings_medium}), \" MED\"), {alarm_warning} > 0, concat(\"🟡 \", toString({alarm_warning}), \" NO DATA\"), \"-\")"
             },
             {
                 "DataSetIdentifier": "system_health_overview",
@@ -19667,12 +19667,12 @@
             {
                 "DataSetIdentifier": "system_health_overview",
                 "Name": "health_score_label",
-                "Expression": "/*\n(AI generated) toString(round(passing_checks, 0)) + \"/\" + toString(total_checks)\n\n*/\nconcat(toString(round({passing_checks}, 0)), \"/\", toString({total_checks}))"
+                "Expression": "/* Plain-language status word matching the health-score bands: Healthy(>=90)/Degraded(70-89)/Unhealthy(<70). Replaces the old \"passing/total\" count, which mixed resource inventory into a health label. Edit the band cut-offs to match your KPI colours; see docs/quicksight/health-scoring.md */\nifelse({health_percentage} >= 90, \"Healthy\", {health_percentage} >= 70, \"Degraded\", \"Unhealthy\")"
             },
             {
                 "DataSetIdentifier": "system_health_overview",
                 "Name": "health_status_icon",
-                "Expression": "/*\n(AI generated) ifelse(\n    health_percentage >= 90, \"●●●●●\",\n    health_percentage >= 80, \"●●●●○\",\n    health_percentage >= 70, \"●●●○○\",\n    health_percentage >= 60, \"●●○○○\",\n    \"●○○○○\"\n)\n\n*/\nifelse({health_percentage} >= 90, \"●●●●●\", {health_percentage} >= 80, \"●●●●○\", {health_percentage} >= 70, \"●●●○○\", {health_percentage} >= 60, \"●●○○○\", \"●○○○○\")"
+                "Expression": "/* 5-dot health indicator. Breakpoints align with the Healthy(>=90)/Degraded(70-89)/Unhealthy(<70) status bands used by the KPI colour and health_score_label. Edit these numbers to re-tune the dots; see docs/quicksight/health-scoring.md */\nifelse({health_percentage} >= 90, \"●●●●●\", {health_percentage} >= 75, \"●●●●○\", {health_percentage} >= 60, \"●●●○○\", {health_percentage} >= 40, \"●●○○○\", \"●○○○○\")"
             },
             {
                 "DataSetIdentifier": "system_health_overview",

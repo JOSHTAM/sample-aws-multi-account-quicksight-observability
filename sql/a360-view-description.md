@@ -1117,9 +1117,25 @@ ORDER BY critical_patches DESC;
 
 ---
 
+## Composite dashboard views (not cataloged above)
+
+Two additional views back the QuickSight **Overview** page rollup rather than a
+raw data domain, so they are documented separately:
+
+- **`canary_status`** (view #49) — one row per canary joined to its latest run and
+  owning system; backs the availability tiles.
+- **`system_health_overview`** (view #50) — the per-system health rollup and the
+  transparent, penalty-based **health score**.
+
+Both are defined in [`schema/core-view.sql`](schema/core-view.sql). The health
+score model, every Overview tile, and step-by-step reconfiguration instructions
+are in **[../docs/quicksight/health-scoring.md](../docs/quicksight/health-scoring.md)**.
+
+---
+
 ## Document Information
 - **Version**: 2.0
 - **Last Updated**: 2025
-- **Total Views**: 42
+- **Total Views**: 42 data views (+ 2 composite dashboard views: `canary_status`, `system_health_overview`)
 - **Database**: PostgreSQL (Aurora Serverless v2)
 

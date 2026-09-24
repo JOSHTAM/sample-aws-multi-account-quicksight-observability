@@ -8,13 +8,17 @@ The dashboard has three sheets out of the box:
 
 | Sheet | Purpose |
 |-------|---------|
-| **Overview** | Cross-system health scores, availability, alarms, warnings, and account summary for every monitored system. |
+| **Overview** | Cross-system health scores, availability, alarms, warnings, and account summary for every monitored system. **How every tile is calculated — and how to reconfigure the score, bands, colours, and icons — is documented in [docs/quicksight/health-scoring.md](../docs/quicksight/health-scoring.md).** |
 | **System A** | Per-system drill-down: critical/high/medium alarms, alarm frequency, active alarms table, and synthetic-canary availability. |
 | **System B** | A second per-system sheet, provided as the template you duplicate when onboarding additional systems (see the onboarding guide). |
 
 > The dashboard is data-driven. On a fresh deployment every table is empty, so the
 > dashboard renders zeros/blank until your sender and collector Lambdas begin writing
-> your own accounts' real data. **No sample or synthetic data is shipped.**
+> your own accounts' real data. **No sample or synthetic data is shipped.** A system
+> with nothing wrong (or nothing yet collected) shows a health score of **100
+> (Healthy)** — the score only drops when real problems are observed. See
+> [docs/quicksight/health-scoring.md](../docs/quicksight/health-scoring.md) for the
+> full scoring model and self-serve configuration guide.
 
 ## Files
 

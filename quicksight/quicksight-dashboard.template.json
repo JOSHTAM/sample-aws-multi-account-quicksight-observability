@@ -2827,12 +2827,12 @@
           "CalculatedFields": [
             {
               "DataSetIdentifier": "system_health_overview",
-              "Expression": "/*\n(AI generated) ifelse(\n    alarm_critical > 0, \"\ud83d\udd34 \" + toString(alarm_critical) + \" CRIT\",\n    security_findings_critical > 0, \"\ud83d\udd34 \" + toString(security_findings_critical) + \" CRIT\",\n    \"\ud83d\udfe2 Clear\"\n)\n\n*/\nifelse({alarm_critical} > 0, concat(\"\ud83d\udd34 \", toString({alarm_critical}), \" CRIT\"), {security_findings_critical} > 0, concat(\"\ud83d\udd34 \", toString({security_findings_critical}), \" CRIT\"), \"\ud83d\udfe2 Clear\")",
+              "Expression": "/* Critical Alarms tile: real critical operational signal. alarm_critical = number of CloudWatch alarms currently in ALARM state (NOT a severity split - CloudWatch alarms have no native severity). Also flags CRITICAL security findings. '🟢 Clear' when nothing is firing. See docs/quicksight/health-scoring.md */\nifelse({alarm_critical} > 0, concat(\"🔴 \", toString({alarm_critical}), \" CRIT\"), {security_findings_critical} > 0, concat(\"🔴 \", toString({security_findings_critical}), \" CRIT\"), \"🟢 Clear\")",
               "Name": "alert_line_1"
             },
             {
               "DataSetIdentifier": "system_health_overview",
-              "Expression": "/*\n(AI generated) ifelse(\n    alarm_warning > 0, \"\ud83d\udfe1 \" + toString(alarm_warning) + \" WARN\",\n    security_findings_high > 0, \"\ud83d\udfe1 \" + toString(security_findings_high) + \" HIGH\",\n    \"\"\n)\n\n*/\nifelse({alarm_warning} > 0, concat(\"\ud83d\udfe1 \", toString({alarm_warning}), \" WARN\"), {security_findings_high} > 0, concat(\"\ud83d\udfe1 \", toString({security_findings_high}), \" HIGH\"), \"-\")",
+              "Expression": "/* Warnings tile: the highest-priority NON-critical attention item. Priority order: HIGH findings, then MEDIUM findings, then alarms in INSUFFICIENT_DATA state (a monitoring-coverage gap, shown as 'NO DATA' - real, but not a failure). '-' when nothing needs attention. Note alarm_warning counts INSUFFICIENT_DATA alarms; alarm_critical (Critical Alarms tile) counts alarms in ALARM state. See docs/quicksight/health-scoring.md */\nifelse({security_findings_high} > 0, concat(\"🟡 \", toString({security_findings_high}), \" HIGH\"), {security_findings_medium} > 0, concat(\"🟡 \", toString({security_findings_medium}), \" MED\"), {alarm_warning} > 0, concat(\"🟡 \", toString({alarm_warning}), \" NO DATA\"), \"-\")",
               "Name": "alert_line_2"
             },
             {
@@ -2842,17 +2842,17 @@
             },
             {
               "DataSetIdentifier": "system_health_overview",
-              "Expression": "/*\n(AI generated) toString(round(passing_checks, 0)) + \"/\" + toString(total_checks)\n\n*/\nconcat(toString(round({passing_checks}, 0)), \"/\", toString({total_checks}))",
+              "Expression": "/* Plain-language status word matching the health-score bands: Healthy(>=90)/Degraded(70-89)/Unhealthy(<70). Replaces the old \"passing/total\" count, which mixed resource inventory into a health label. Edit the band cut-offs to match your KPI colours; see docs/quicksight/health-scoring.md */\nifelse({health_percentage} >= 90, \"Healthy\", {health_percentage} >= 70, \"Degraded\", \"Unhealthy\")",
               "Name": "health_score_label"
             },
             {
               "DataSetIdentifier": "system_health_overview",
-              "Expression": "/*\n(AI generated) ifelse(\n    health_percentage >= 90, \"\u25cf\u25cf\u25cf\u25cf\u25cf\",\n    health_percentage >= 80, \"\u25cf\u25cf\u25cf\u25cf\u25cb\",\n    health_percentage >= 70, \"\u25cf\u25cf\u25cf\u25cb\u25cb\",\n    health_percentage >= 60, \"\u25cf\u25cf\u25cb\u25cb\u25cb\",\n    \"\u25cf\u25cb\u25cb\u25cb\u25cb\"\n)\n\n*/\nifelse({health_percentage} >= 90, \"\u25cf\u25cf\u25cf\u25cf\u25cf\", {health_percentage} >= 80, \"\u25cf\u25cf\u25cf\u25cf\u25cb\", {health_percentage} >= 70, \"\u25cf\u25cf\u25cf\u25cb\u25cb\", {health_percentage} >= 60, \"\u25cf\u25cf\u25cb\u25cb\u25cb\", \"\u25cf\u25cb\u25cb\u25cb\u25cb\")",
+              "Expression": "/* 5-dot health indicator. Breakpoints align with the Healthy(>=90)/Degraded(70-89)/Unhealthy(<70) status bands used by the KPI colour and health_score_label. Edit these numbers to re-tune the dots; see docs/quicksight/health-scoring.md */\nifelse({health_percentage} >= 90, \"●●●●●\", {health_percentage} >= 75, \"●●●●○\", {health_percentage} >= 60, \"●●●○○\", {health_percentage} >= 40, \"●●○○○\", \"●○○○○\")",
               "Name": "health_status_icon"
             },
             {
               "DataSetIdentifier": "system_health_overview",
-              "Expression": "/*\n(AI generated) service_availability_status = ifelse(\n    canary_passing = canary_total, \"\ud83d\udfe2 \" + toString(canary_passing) + \"/\" + toString(canary_total) + \" UP\",\n    canary_passing > 0, \"\ud83d\udfe1 \" + toString(canary_passing) + \"/\" + toString(canary_total) + \" DEGRADED\",\n    \"\ud83d\udd34 0/\" + toString(canary_t\n*/\nifelse({canary_passing} = {canary_total}, concat(\"\ud83d\udfe2 \", toString({canary_passing}), \"/\", toString({canary_total}), \" UP\"), {canary_passing} > 0, concat(\"\ud83d\udfe1 \", toString({canary_passing}), \"/\", toString({canary_total}), \" DEGRADED\"), concat(\"\ud83d\udd34 0/\", toString({canary_total})))",
+              "Expression": "/*\n(AI generated) service_availability_status = ifelse(\n    canary_passing = canary_total, \"🟢 \" + toString(canary_passing) + \"/\" + toString(canary_total) + \" UP\",\n    canary_passing > 0, \"🟡 \" + toString(canary_passing) + \"/\" + toString(canary_total) + \" DEGRADED\",\n    \"🔴 0/\" + toString(canary_t\n*/\nifelse({canary_passing} = {canary_total}, concat(\"🟢 \", toString({canary_passing}), \"/\", toString({canary_total}), \" UP\"), {canary_passing} > 0, concat(\"🟡 \", toString({canary_passing}), \"/\", toString({canary_total}), \" DEGRADED\"), concat(\"🔴 0/\", toString({canary_total})))",
               "Name": "service_availability"
             },
             {
@@ -7563,7 +7563,7 @@
                   "SheetTextBoxId": "4e37b367-14c3-4cbf-9e8e-f8b8fe7266cd"
                 },
                 {
-                  "Content": "<text-box>\u00a0</text-box>",
+                  "Content": "<text-box> </text-box>",
                   "SheetTextBoxId": "9b270c0a-222c-41a3-9fce-2595bf35dbfe"
                 },
                 {
@@ -7575,7 +7575,7 @@
                   "SheetTextBoxId": "4e20bdc0-9a0a-44e8-81b3-578f59e54c85"
                 },
                 {
-                  "Content": "<text-box>\n  <block align=\"center\">\n    <inline font-size=\"24px\">\n      <b>Insert\u00a0</b>\n    </inline>\n  </block>\n  <br/>\n  <block align=\"center\">\n    <inline font-size=\"24px\">\n      <b>Company Logo\u00a0</b>\n    </inline>\n  </block>\n  <br/>\n  <block align=\"center\">\n    <inline font-size=\"24px\">\n      <b/>\n    </inline>\n    <inline font-size=\"24px\">\n      <b>Here</b>\n    </inline>\n  </block>\n</text-box>",
+                  "Content": "<text-box>\n  <block align=\"center\">\n    <inline font-size=\"24px\">\n      <b>Insert </b>\n    </inline>\n  </block>\n  <br/>\n  <block align=\"center\">\n    <inline font-size=\"24px\">\n      <b>Company Logo </b>\n    </inline>\n  </block>\n  <br/>\n  <block align=\"center\">\n    <inline font-size=\"24px\">\n      <b/>\n    </inline>\n    <inline font-size=\"24px\">\n      <b>Here</b>\n    </inline>\n  </block>\n</text-box>",
                   "SheetTextBoxId": "d29934e1-301a-45db-9e34-164d940125bb"
                 }
               ],
@@ -11869,7 +11869,7 @@
                         }
                       ],
                       "CustomNarrative": {
-                        "Narrative": "<narrative>\n  Top\u00a0\n  <if condition=\"Top.itemsCount &gt; 1\" level=\"inline\">\n    <expression>Top.itemsCount</expression>\n    \u00a0\n  </if>\n  <if condition=\"Top.itemsCount &gt; 1\" level=\"inline\">services</if>\n  <if condition=\"Top.itemsCount &lt;= 1\" level=\"inline\">service</if>\n  \u00a0for total\u00a0\n  <expression>Top.metricField.name</expression>\n  <if condition=\"Top.itemsCount &gt; 1\" level=\"inline\">\u00a0are:</if>\n  <if condition=\"Top.itemsCount &lt; 2\" level=\"inline\">\u00a0is:</if>\n  <br/>\n  <for level=\"block\" listExpression=\"Top.items\">\n    <inline color=\"Accent\">\n      <b>\n        <expression>Top.items[index].categoryValue.formattedValue</expression>\n      </b>\n    </inline>\n    \u00a0with\u00a0\n    <expression>Top.items[index].metricValue.formattedValue</expression>\n  </for>\n  <br/>\n</narrative>"
+                        "Narrative": "<narrative>\n  Top \n  <if condition=\"Top.itemsCount &gt; 1\" level=\"inline\">\n    <expression>Top.itemsCount</expression>\n     \n  </if>\n  <if condition=\"Top.itemsCount &gt; 1\" level=\"inline\">services</if>\n  <if condition=\"Top.itemsCount &lt;= 1\" level=\"inline\">service</if>\n   for total \n  <expression>Top.metricField.name</expression>\n  <if condition=\"Top.itemsCount &gt; 1\" level=\"inline\"> are:</if>\n  <if condition=\"Top.itemsCount &lt; 2\" level=\"inline\"> is:</if>\n  <br/>\n  <for level=\"block\" listExpression=\"Top.items\">\n    <inline color=\"Accent\">\n      <b>\n        <expression>Top.items[index].categoryValue.formattedValue</expression>\n      </b>\n    </inline>\n     with \n    <expression>Top.items[index].metricValue.formattedValue</expression>\n  </for>\n  <br/>\n</narrative>"
                       }
                     },
                     "Subtitle": {
@@ -13478,7 +13478,7 @@
                   "SheetTextBoxId": "f74cca7b-d5b6-4821-b9f0-275f93e8b60c"
                 },
                 {
-                  "Content": "<text-box>\n  <inline font-family=\"Amazon Ember\" font-size=\"20px\">\n    <b>CostSecurity</b>\n  </inline>\n  \u00a0\n  <br/>\n  Consolidated across all AWS accounts\n</text-box>",
+                  "Content": "<text-box>\n  <inline font-family=\"Amazon Ember\" font-size=\"20px\">\n    <b>CostSecurity</b>\n  </inline>\n   \n  <br/>\n  Consolidated across all AWS accounts\n</text-box>",
                   "SheetTextBoxId": "5edf1ace-d90c-41b9-b929-d97ee75d45ba"
                 }
               ],
@@ -18776,7 +18776,7 @@
                     },
                     "Title": {
                       "FormatText": {
-                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">&#128308;\u00a0\u00a0\u00a0</inline>\n  <inline font-size=\"13px\">\n    <b>Critical Alarms</b>\n  </inline>\n</visual-title>"
+                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">&#128308;   </inline>\n  <inline font-size=\"13px\">\n    <b>Critical Alarms</b>\n  </inline>\n</visual-title>"
                       },
                       "Visibility": "VISIBLE"
                     },
@@ -18947,7 +18947,7 @@
                     },
                     "Title": {
                       "FormatText": {
-                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">\n    <b>\u26a0\ufe0f   Active Incidents</b>\n  </inline>\n</visual-title>"
+                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">\n    <b>⚠️   Active Incidents</b>\n  </inline>\n</visual-title>"
                       },
                       "Visibility": "VISIBLE"
                     },
@@ -19582,7 +19582,7 @@
                     },
                     "Title": {
                       "FormatText": {
-                        "RichText": "<visual-title>\n  <inline font-size=\"20px\">\n    <b>System Availability</b>\n  </inline>\n  <inline font-size=\"20px\">\u00a0(CloudWatch Synthetic Canaries)</inline>\n</visual-title>"
+                        "RichText": "<visual-title>\n  <inline font-size=\"20px\">\n    <b>System Availability</b>\n  </inline>\n  <inline font-size=\"20px\"> (CloudWatch Synthetic Canaries)</inline>\n</visual-title>"
                       },
                       "Visibility": "VISIBLE"
                     },
@@ -20268,7 +20268,7 @@
                   "SheetTextBoxId": "aae6e93d-48ee-4fc4-b829-f5806e6e1744"
                 },
                 {
-                  "Content": "<text-box>\n  <inline font-family=\"Amazon Ember\" font-size=\"20px\">\n    <b>CostSecurity</b>\n  </inline>\n  \u00a0\n  <br/>\n  Consolidated across all AWS accounts\n</text-box>",
+                  "Content": "<text-box>\n  <inline font-family=\"Amazon Ember\" font-size=\"20px\">\n    <b>CostSecurity</b>\n  </inline>\n   \n  <br/>\n  Consolidated across all AWS accounts\n</text-box>",
                   "SheetTextBoxId": "e997f2c0-c506-49f4-b30b-e75de3f30aef"
                 }
               ],
@@ -25566,7 +25566,7 @@
                     },
                     "Title": {
                       "FormatText": {
-                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">&#128308;\u00a0\u00a0\u00a0</inline>\n  <inline font-size=\"13px\">\n    <b>Critical Alarms</b>\n  </inline>\n</visual-title>"
+                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">&#128308;   </inline>\n  <inline font-size=\"13px\">\n    <b>Critical Alarms</b>\n  </inline>\n</visual-title>"
                       },
                       "Visibility": "VISIBLE"
                     },
@@ -25737,7 +25737,7 @@
                     },
                     "Title": {
                       "FormatText": {
-                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">\n    <b>\u26a0\ufe0f   Active Incidents</b>\n  </inline>\n</visual-title>"
+                        "RichText": "<visual-title>\n  <inline font-size=\"13px\">\n    <b>⚠️   Active Incidents</b>\n  </inline>\n</visual-title>"
                       },
                       "Visibility": "VISIBLE"
                     },
