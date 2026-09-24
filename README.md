@@ -164,7 +164,7 @@ The deployment sets up the central analytics hub, loads the database, provisions
 |------|-------------|
 | **1. Clone this repository** | `git clone https://github.com/JOSHTAM/sample-aws-multi-account-quicksight-observability.git` |
 | **2. Deploy the Analytics hub** | Deploy `cloudformation/A360-Analytics.yaml`.<br>**Option A (Serverless)**: set *Deploy EC2 Receiver = No* (Lambda receiver).<br>**Option B (EC2)**: set *Deploy EC2 Receiver = Yes* for large payloads / compliance. |
-| **3. Upload assets to S3** | Upload the `scripts/` and `quicksuite/` folders, the packaged Lambda zips to `lambda/`, and `config/metric_definitions.json` + `config/exclude.json`, to the hub's `-data` bucket. |
+| **3. Upload assets to S3** | Upload the `scripts/` and `quicksuite/` folders and `config/metric_definitions.json` + `config/exclude.json` to the hub's `-data` bucket. All Lambdas load their code from `scripts/` at runtime — no packaging needed. |
 | **4. Wire triggers** | Add the S3 `ObjectCreated` trigger to the Receiver Lambda (the 5-minute metric-collection and daily retention schedules are created by the template). |
 | **5. Set up the database** | In the Aurora Query Editor (database `core`), run `sql/schema/core-schema.sql`, then `sql/schema/core-view.sql`, then `sql/schema/partitions.sql` (required for the real-time metrics table). |
 | **6. Configure QuickSight** | Enable Enterprise edition, create the VPC connection, and create an Aurora data source (database `core`). |

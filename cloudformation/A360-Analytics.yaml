@@ -1710,7 +1710,7 @@ Resources:
                   - s3:GetObject
                 Resource:
                   - !Sub "${S3Bucket.Arn}/config/*"
-                  - !Sub "${S3Bucket.Arn}/lambda/*"
+                  - !Sub "${S3Bucket.Arn}/scripts/*"
               - Sid: KMSDecryptAccess
                 Effect: Allow
                 Action:
@@ -1729,14 +1729,12 @@ Resources:
     Properties:
       FunctionName: !Sub "${AWS::StackName}-MetricCollector"
       Runtime: python3.13
-      Handler: metric_collector.lambda_handler
+      Handler: index.lambda_handler
       MemorySize: 512
       Timeout: 300
-      Code:
-        S3Bucket: !Ref S3Bucket
-        S3Key: lambda/metric_collector.zip
       Environment:
         Variables:
+          BUCKET: !Ref S3Bucket
           AURORA_CLUSTER_ARN: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraDBCluster}"
           AURORA_SECRET_ARN: !GetAtt AuroraDBCluster.MasterUserSecret.SecretArn
           DATABASE_NAME: "core"
@@ -1745,6 +1743,36 @@ Resources:
           EXCLUDE_RULES_KEY: "config/exclude.json"
       Role: !GetAtt MetricCollectorRole.Arn
       KmsKeyArn: !GetAtt A360KMSKey.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import tempfile
+          import importlib.util
+          import sys
+          import os
+          from typing import Any, Dict
+
+          BUCKET = os.environ.get("BUCKET")
+
+          def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+              script_key = 'scripts/metric_collector.py'
+              s3_client = boto3.client('s3')
+              response = s3_client.get_object(Bucket=BUCKET, Key=script_key)
+              script_content = response['Body'].read().decode('utf-8')
+
+              with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+                  temp_file.write(script_content)
+                  temp_file.flush()
+                  temp_file_path = temp_file.name
+
+              try:
+                  spec = importlib.util.spec_from_file_location("metric_collector", temp_file_path)
+                  module = importlib.util.module_from_spec(spec)
+                  sys.modules[spec.name] = module
+                  spec.loader.exec_module(module)
+                  return module.lambda_handler(event, context)
+              finally:
+                  os.unlink(temp_file_path)
 
   # Real-Time Metrics Dashboard - Data Retention Lambda
   DataRetentionFunction:
@@ -1757,19 +1785,47 @@ Resources:
     Properties:
       FunctionName: !Sub "${AWS::StackName}-DataRetention"
       Runtime: python3.13
-      Handler: data_retention.lambda_handler
+      Handler: index.lambda_handler
       MemorySize: 256
       Timeout: 120
-      Code:
-        S3Bucket: !Ref S3Bucket
-        S3Key: lambda/data_retention.zip
       Environment:
         Variables:
+          BUCKET: !Ref S3Bucket
           AURORA_CLUSTER_ARN: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${AuroraDBCluster}"
           AURORA_SECRET_ARN: !GetAtt AuroraDBCluster.MasterUserSecret.SecretArn
           DATABASE_NAME: "core"
           RETENTION_DAYS: "90"
       Role: !GetAtt MetricCollectorRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import tempfile
+          import importlib.util
+          import sys
+          import os
+          from typing import Any, Dict
+
+          BUCKET = os.environ.get("BUCKET")
+
+          def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+              script_key = 'scripts/data_retention.py'
+              s3_client = boto3.client('s3')
+              response = s3_client.get_object(Bucket=BUCKET, Key=script_key)
+              script_content = response['Body'].read().decode('utf-8')
+
+              with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+                  temp_file.write(script_content)
+                  temp_file.flush()
+                  temp_file_path = temp_file.name
+
+              try:
+                  spec = importlib.util.spec_from_file_location("data_retention", temp_file_path)
+                  module = importlib.util.module_from_spec(spec)
+                  sys.modules[spec.name] = module
+                  spec.loader.exec_module(module)
+                  return module.lambda_handler(event, context)
+              finally:
+                  os.unlink(temp_file_path)
 
   # Real-Time Metrics Dashboard - EventBridge Schedules
   MetricCollectorSchedule:

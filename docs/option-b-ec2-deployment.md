@@ -31,7 +31,8 @@ This is a comprehensive deployment guide for View 360 (Multi account observabili
 | 2 | Open the newly created S3 Bucket(`<the_name_you_set>-<aws_account_number>-data`) |
 | 3 | From the repository root, upload the following into the `-data` bucket at the root:<br>• `scripts/` (all files)<br>• `quicksuite/` (the `.qs` dashboard bundle used by the migration step) |
 | 4 | Upload the near-real-time configuration to a `config/` prefix:<br>• `config/metric_definitions.json` (copy of `scripts/metric_definitions.json`)<br>• `config/exclude.json` (copy of `scripts/exclude.json`) |
-| 5 | Package and upload the Metric Collector and Data Retention Lambda code to a `lambda/` prefix:<br>• `cd scripts && zip metric_collector.zip metric_collector.py && zip data_retention.zip data_retention.py`<br>• Upload both zips to `s3://<the_name_you_set>-<aws_account_number>-data/lambda/` |
+
+> **ℹ️ Note:** Step 4 enables the near-real-time dashboard. The Metric Collector and Data Retention Lambdas load their code from `scripts/` at runtime (uploaded in step 3), so no separate packaging is required. Skipping step 4 leaves the real-time metric visuals empty; the daily inventory path still works.
 
 ## Step 3: Setting Up Event Bridge in the Analytics account
 

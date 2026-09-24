@@ -225,7 +225,7 @@ S3 Event → Lambda → SSM Run Command → EC2 Instance → receiver.py → Aur
 Both deployment options follow the same 8-step sequence:
 
 1. **Setup Analytics Account** - Deploy CloudFormation template
-2. **Setup S3 Folders** - Upload `scripts/` and `quicksuite/`, plus `config/` (metric_definitions.json, exclude.json) and `lambda/` (metric_collector.zip, data_retention.zip)
+2. **Setup S3 Folders** - Upload `scripts/` and `quicksuite/`, plus `config/` (metric_definitions.json, exclude.json). The Metric Collector and Data Retention Lambdas load their code from `scripts/` at runtime, so no packaging is required.
 3. **Setup Event Triggers** - Configure the S3 trigger (the 5-minute metric and daily retention schedules are created by the template)
 4. **Setup Database** - Run `core-schema.sql`, `core-view.sql`, then `partitions.sql`
 5. **Configure QuickSight VPC** - Create VPC connection
