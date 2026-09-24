@@ -131,8 +131,57 @@ CUSTOMER=customer-name    # optional: for multi-tenant environments
 PARTNER=partner-name      # optional: for partner identification
 CATEGORY=category-name    # optional: account classification
 ENVIRONMENT=environment-type  # optional: environment classification
-PRODUCT=product-name      # optional: product identification
+PRODUCT=product-name      # optional: product identification (becomes the system_name on the dashboard)
 ```
+
+### metric_collector.py
+```bash
+AURORA_CLUSTER_ARN=arn:aws:rds:region:account:cluster:cluster-name
+AURORA_SECRET_ARN=arn:aws:secretsmanager:region:account:secret:secret-name
+DATABASE_NAME=core
+CONFIG_BUCKET=analytics-s3-bucket-name
+METRIC_DEFINITIONS_KEY=config/metric_definitions.json
+EXCLUDE_RULES_KEY=config/exclude.json
+```
+
+### alert_processor.py
+```bash
+AURORA_CLUSTER_ARN=arn:aws:rds:region:account:cluster:cluster-name
+AURORA_SECRET_ARN=arn:aws:secretsmanager:region:account:secret:secret-name
+DB_NAME=core
+REGION=ap-southeast-1
+SLACK_WEBHOOK_URL=          # optional: leave empty to disable Slack notifications
+QUICKSIGHT_DASHBOARD_URL=   # optional: link included in notifications
+```
+
+### data_retention.py
+```bash
+AURORA_CLUSTER_ARN=arn:aws:rds:region:account:cluster:cluster-name
+AURORA_SECRET_ARN=arn:aws:secretsmanager:region:account:secret:secret-name
+DATABASE_NAME=core
+RETENTION_DAYS=90           # rows older than this in cloudwatch_metrics / alarm_states are deleted
+```
+
+## Near-Real-Time & Alerting Scripts
+
+In addition to the daily `sender.py`/`receiver.py` collection path, this solution includes the following components that power the executive dashboard:
+
+### metric_collector.py
+**Purpose**: Collects CloudWatch metrics and alarm states from all linked accounts every 5 minutes using CloudWatch cross-account observability (OAM), and writes them to the `cloudwatch_metrics` (weekly-partitioned) and `alarm_states` tables.
+**Trigger**: EventBridge `rate(5 minutes)` schedule created by `A360-Analytics.yaml`.
+**Config**: reads `config/metric_definitions.json` (accounts, regions, metric list) and `config/exclude.json` (resource exclusion rules) from S3.
+
+### alert_processor.py
+**Purpose**: Classifies alarm severity (via the `notification_rules` table), detects consecutive canary failures, and optionally sends rate-limited Slack notifications for Critical/High alarms, P1/P2 incidents, and repeatedly-failing canaries.
+**Trigger**: invoked (a) by the Receiver with a batch of alarm/incident/canary records, and (b) in near-real-time by the `executive-alerts-bus` EventBridge bus on CloudWatch "Alarm State Change" events forwarded from source accounts.
+**Slack**: disabled unless `SLACK_WEBHOOK_URL` is set. Delivery is audited and rate-limited via the `slack_notifications` table.
+
+### data_retention.py
+**Purpose**: Runs daily to delete rows older than `RETENTION_DAYS` (default 90) from `cloudwatch_metrics` and `alarm_states`, keeping the real-time tables bounded.
+**Trigger**: EventBridge daily schedule created by `A360-Analytics.yaml`.
+
+### dashboard_helpers.py
+**Purpose**: Pure display/aggregation helper functions used by the executive dashboard logic (severity coloring, account highlighting, critical detail panels, filtering, and executive summary counts). Not a Lambda handler.
 
 ## Architecture & Data Flow
 
@@ -176,15 +225,15 @@ S3 Event → Lambda → SSM Run Command → EC2 Instance → receiver.py → Aur
 Both deployment options follow the same 8-step sequence:
 
 1. **Setup Analytics Account** - Deploy CloudFormation template
-2. **Setup S3 Folders** - Upload `scripts/` and `quicksuite/` folders
-3. **Setup Event Triggers** - Configure S3 and EventBridge triggers
-4. **Setup Database** - Run schema and view SQL files
+2. **Setup S3 Folders** - Upload `scripts/` and `quicksuite/`, plus `config/` (metric_definitions.json, exclude.json) and `lambda/` (metric_collector.zip, data_retention.zip)
+3. **Setup Event Triggers** - Configure the S3 trigger (the 5-minute metric and daily retention schedules are created by the template)
+4. **Setup Database** - Run `core-schema.sql`, `core-view.sql`, then `partitions.sql`
 5. **Configure QuickSight VPC** - Create VPC connection
 6. **Setup QuickSight Data Source** - Connect to Aurora database
 7. **Migrate QuickSight Analysis** - Deploy migration template
 8. **Deploy Sender Accounts** - Deploy sender template in each account
 
-See the [Deployment Guide](../DEPLOYMENT_GUIDE.md) for detailed instructions.
+See the [Deployment Guide](../docs/deployment-guide.md) for detailed instructions.
 
 ## Error Handling
 

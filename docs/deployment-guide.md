@@ -1,7 +1,11 @@
 # Deployment Guide
-The Analytics account offers two deployment options. Following V1.xx customer feedback, we introduced an EC2 & SSM agent receiver option for processing large datasets that exceed Lambda's 15-minute execution limit.
+# Deployment Guide
 
-Below are comprehensive details for both options:
+This guide covers deploying the Multi-Account QuickSight Observability solution. The Analytics (hub) account offers two deployment options: a fully serverless path, and an EC2 & SSM receiver option for processing large datasets that exceed Lambda's 15-minute execution limit.
+
+Below are comprehensive details for both options.
+
+> **Which hub template?** Deploy `cloudformation/A360-Analytics.yaml` for the full solution (it includes the near-real-time Metric Collector, Alert Processor, and Data Retention Lambdas that feed the dashboard). The alternative `cloudformation/A360-Analytics-Custom-VPC.yaml` deploys the core collector into an **existing** VPC but does **not** include those real-time components.
 
 ## Table of Contents
 
@@ -24,28 +28,23 @@ Below are comprehensive details for both options:
 </tr>
 <tr>
 <td>1</td>
-<td>Repository Link</td>
-<td>https://github.com/aws-samples/sample-aws-multi-account-observability</td>
+<td>Clone the repository</td>
+<td>Clone this repository so you have all templates, scripts, SQL, and QuickSight assets locally:<br><code>git clone https://github.com/JOSHTAM/sample-aws-multi-account-quicksight-observability.git</code></td>
 </tr>
 <tr>
 <td>2</td>
-<td>Download</td>
-<td>Download <code>sample-aws-multi-account-observability</code> the folder as a zip from AWS Samples repository</td>
+<td>Verify</td>
+<td>Confirm you have the <code>cloudformation/</code>, <code>scripts/</code>, <code>sql/</code>, and <code>quicksuite/</code> folders.</td>
 </tr>
 <tr>
 <td>3</td>
-<td>Extract</td>
-<td>Extract all and place it in a folder of your choice</td>
+<td>Quick Suite Account</td>
+<td><em>MUST DO</em> - Ensure an Amazon Quick Suite (QuickSight Enterprise) account exists in the hub account, in the same region.<br>• AWS Console > search for Amazon Quick Suite<br>• Create the account, log in, and confirm it works.</td>
 </tr>
 <tr>
 <td>4</td>
-<td>Verify</td>
-<td>Check that you have all the files</td>
-</tr>
-<tr>
-<td>5</td>
-<td>QuickSuite Account</td>
-<td><em>MUST DO</em> - Please make sure to have an Amazon Quick Suite account created.<br>• Login to AWS Console > Search for Amazon Quick Suite<br>• Create Account & Log in to Amazon Quick Suite and ensure its working.</td>
+<td>CloudWatch cross-account observability (OAM)</td>
+<td>For the near-real-time Metric Collector, configure the hub as a CloudWatch monitoring account linked to your source accounts (Sinks/Links). Without OAM, the daily inventory path still works but real-time metrics will be empty.</td>
 </tr>
 </table>
 

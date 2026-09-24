@@ -9,7 +9,7 @@ This is a comprehensive deployment guide for View 360 (Multi account observabili
 | Step | Description |
 |------|-------------|
 | 1 | Open CloudFormation in AWS (the account you wish for it to be an Analytics account) the below steps: Create Stack > Choose an existing template > Upload the template file |
-| 2 | Browse and upload the file `A360-Analytics.yaml` which could be found within the `sample-aws-multi-account-observability/cloudformation-template/` folder |
+| 2 | Browse and upload the file `A360-Analytics.yaml` which could be found within the `cloudformation/` folder |
 | 3 | Once the S3 URL is generated, click on View in Infrastructure Composer and Validate the template. This is recommended practice. |
 | 4 | Then click Next |
 | 5 | There will be a requirement to set parameters, to configure this account. *Note: For this implementation, please make sure to select **YES** for 1.3 Deploy EC2 Receiver (with VPC Endpoints). |
@@ -29,7 +29,9 @@ This is a comprehensive deployment guide for View 360 (Multi account observabili
 |------|-------------|
 | 1 | There will be 2 new S3 bucket created<br>• `<the_name_you_set>-<aws_account_number>-data`<br>• `<the_name_you_set>-<aws_account_number>-logs` |
 | 2 | Open the newly created S3 Bucket(`<the_name_you_set>-<aws_account_number>-data`) |
-| 3 | Upload the below two folders with all the content inside from the `aws-multi-account-observability/` folder into this S3 bucket at the root<br>• `scripts/`<br>• `quicksuite/` |
+| 3 | From the repository root, upload the following into the `-data` bucket at the root:<br>• `scripts/` (all files)<br>• `quicksuite/` (the `.qs` dashboard bundle used by the migration step) |
+| 4 | Upload the near-real-time configuration to a `config/` prefix:<br>• `config/metric_definitions.json` (copy of `scripts/metric_definitions.json`)<br>• `config/exclude.json` (copy of `scripts/exclude.json`) |
+| 5 | Package and upload the Metric Collector and Data Retention Lambda code to a `lambda/` prefix:<br>• `cd scripts && zip metric_collector.zip metric_collector.py && zip data_retention.zip data_retention.py`<br>• Upload both zips to `s3://<the_name_you_set>-<aws_account_number>-data/lambda/` |
 
 ## Step 3: Setting Up Event Bridge in the Analytics account
 
@@ -79,15 +81,17 @@ This is a comprehensive deployment guide for View 360 (Multi account observabili
 | 4.4 | Enter the name of the database: `core` |
 | 5 | You should now see the Query Editor |
 | 6 | **1. CREATE TABLES** |
-| 6.1 | Open the file from this folder path `aws-multi-account-observability/sql/core-schema.sql` |
+| 6.1 | Open the file from this folder path `sql/schema/core-schema.sql` |
 | 6.2 | Copy and Paste the contents of this file inside the query editor and hit `Run` |
 | 6.3 | *Optional: You can also save it as a query for future use |
 | 7 | After all the tables have been created move to step 8 |
 | 8 | **2. CREATE VIEWS** |
-| 8.1 | Open the file from this folder path `aws-multi-account-observability/sql/core-view-schema.sql` |
+| 8.1 | Open the file from this folder path `sql/schema/core-view.sql` |
 | 8.2 | Copy and Paste the contents of this file inside the query editor and hit `Run` |
 | 8.3 | *Optional: You can also save it as a query for future use |
-| 9 | The database is all set now. |
+| 9 | **3. CREATE PARTITIONS** (required for near-real-time metrics) |
+| 9.1 | Open the file `sql/schema/partitions.sql` and Run it to create weekly partitions for the `cloudwatch_metrics` table |
+| 10 | The database is all set now. |
 
 ## Step 5: Configure Quick Suite VPC
 
@@ -134,7 +138,7 @@ This is a comprehensive deployment guide for View 360 (Multi account observabili
 | Step | Description |
 |------|-------------|
 | 1 | Open `CloudFormation` in AWS (the account you wish for it to be an Analytics account) the below steps: **Create Stack** > **Choose an existing template** > **Upload the template file** |
-| 2 | Browse and upload the file `A360-QS-Migration.yaml` which could be found within the `sample-aws-multi-account-observability/cloudformation-template/` folder |
+| 2 | Browse and upload the file `A360-QS-Migration.yaml` which could be found within the `cloudformation/` folder |
 | 3 | Once the S3 URL is generated, click on `View in Infrastructure Composer` and `Validate` the template. This is recommended practice. |
 | 4 | Then click `Next` |
 | 5 | There will be a requirement to set parameters<br><br><div align="center"><img width="755" height="816" alt="seq-7-migration" src="https://github.com/user-attachments/assets/4f09be82-08be-46a1-91f7-15e1e124e282" /></div> |
@@ -151,7 +155,7 @@ This is a comprehensive deployment guide for View 360 (Multi account observabili
 | Step | Description |
 |------|-------------|
 | 1 | Open CloudFormation in AWS (the account you wish for it to be an Analytics account) the below steps: Create Stack > Choose an existing template > Upload the template file |
-| 2 | Browse and upload the file `A360-Sender.yaml` which could be found within the `sample-aws-multi-account-observability/cloudformation-template/` folder |
+| 2 | Browse and upload the file `A360-Sender.yaml` which could be found within the `cloudformation/` folder |
 | 3 | Once the S3 URL is generated, click on `View in Infrastructure Composer` and Validate the template. This is recommended practice. |
 | 4 | Then click `Next` |
 | 5 | There will be a requirement to set parameters<br><br><div align="center"><img width="759" height="918" alt="seq-8-sender" src="https://github.com/user-attachments/assets/6f70bd17-1aa8-4356-8677-329f9b883c1b" /></div> |
