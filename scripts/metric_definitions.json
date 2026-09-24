@@ -1,0 +1,484 @@
+{
+  "accounts": ["111111111111", "222222222222"],
+  "default_region": "ap-southeast-1",
+  "region_overrides": {
+    "AWS/CloudFront": "us-east-1",
+    "AWS/CertificateManager": "us-east-1"
+  },
+  "metrics": [
+    {
+      "namespace": "AWS/EC2",
+      "metric_name": "StatusCheckFailed",
+      "statistic": "Maximum",
+      "category": "availability"
+    },
+    {
+      "namespace": "AWS/EC2",
+      "metric_name": "StatusCheckFailed_AttachedEBS",
+      "statistic": "Maximum",
+      "category": "availability"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "EngineUptime",
+      "statistic": "Average",
+      "category": "availability"
+    },
+    {
+      "namespace": "AWS/Backup",
+      "metric_name": "NumberOfBackupJobsFailed",
+      "statistic": "Sum",
+      "category": "availability"
+    },
+    {
+      "namespace": "AWS/CertificateManager",
+      "metric_name": "DaysToExpiry",
+      "statistic": "Minimum",
+      "category": "availability"
+    },
+    {
+      "namespace": "AWS/EC2",
+      "metric_name": "CPUUtilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/EC2",
+      "metric_name": "NetworkIn",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/EC2",
+      "metric_name": "NetworkOut",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "CWAgent",
+      "metric_name": "mem_used_percent",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "CWAgent",
+      "metric_name": "disk_used_percent",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ECS",
+      "metric_name": "CPUUtilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ECS",
+      "metric_name": "MemoryUtilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ECS",
+      "metric_name": "CPUReservation",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ECS",
+      "metric_name": "MemoryReservation",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ECS",
+      "metric_name": "RegisteredContainerInstanceCount",
+      "statistic": "Maximum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "EKS/ContainerInsights",
+      "metric_name": "node_cpu_utilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "EKS/ContainerInsights",
+      "metric_name": "node_memory_utilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "EKS/ContainerInsights",
+      "metric_name": "pod_memory_utilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "EKS/ContainerInsights",
+      "metric_name": "cluster_node_count",
+      "statistic": "Maximum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/Lambda",
+      "metric_name": "ConcurrentExecutions",
+      "statistic": "Maximum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "CPUUtilization",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "FreeableMemory",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "FreeStorageSpace",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "DiskQueueDepth",
+      "statistic": "Maximum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "DatabaseConnections",
+      "statistic": "Maximum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "Count",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "DataProcessed",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "CacheHitCount",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "CacheMissCount",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "ProcessedBytes",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "ActiveConnectionCount",
+      "statistic": "Average",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/CloudFront",
+      "metric_name": "Requests",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/CloudFront",
+      "metric_name": "BytesDownloaded",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/CloudFront",
+      "metric_name": "BytesUploaded",
+      "statistic": "Sum",
+      "category": "capacity"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "5XXError",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "IntegrationLatency",
+      "statistic": "p95",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApiGateway",
+      "metric_name": "Latency",
+      "statistic": "p95",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "UnHealthyHostCount",
+      "statistic": "Maximum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "TargetResponseTime",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "HTTPCode_Target_5XX",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "RequestCount",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "SpilloverCount",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/ApplicationELB",
+      "metric_name": "RejectedConnectionCount",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Lambda",
+      "metric_name": "Duration",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Lambda",
+      "metric_name": "PostRuntimeExtensionsDuration",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Lambda",
+      "metric_name": "Errors",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Lambda",
+      "metric_name": "IteratorAge",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Lambda",
+      "metric_name": "Invocations",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "ReadLatency",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "WriteLatency",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "DatabaseConnectionErrors",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "ReadIOPS",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "WriteIOPS",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "Deadlocks",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "SuccessfulTransactions",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/RDS",
+      "metric_name": "AbortedTransactions",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/S3",
+      "metric_name": "AllRequests",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/S3",
+      "metric_name": "5xxErrors",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/S3",
+      "metric_name": "FirstByteLatency",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/S3",
+      "metric_name": "TotalRequestLatency",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "ECS/ContainerInsights",
+      "metric_name": "RunningTaskCount",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "ECS/ContainerInsights",
+      "metric_name": "PendingTaskCount",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "ECS/ContainerInsights",
+      "metric_name": "ServiceCount",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "EKS/ContainerInsights",
+      "metric_name": "pod_response_time",
+      "statistic": "p95",
+      "category": "performance"
+    },
+    {
+      "namespace": "EKS/ContainerInsights",
+      "metric_name": "cluster_failed_node_count",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/CloudFront",
+      "metric_name": "OriginLatency",
+      "statistic": "p95",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/CloudFront",
+      "metric_name": "5xxErrorRate",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/DynamoDB",
+      "metric_name": "ConsumedReadCapacityUnits",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/DynamoDB",
+      "metric_name": "ConsumedWriteCapacityUnits",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/DynamoDB",
+      "metric_name": "SuccessfulRequestLatency",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/DynamoDB",
+      "metric_name": "ThrottledRequests",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Logs",
+      "metric_name": "IncomingLogEvents",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Logs",
+      "metric_name": "ThrottleEvents",
+      "statistic": "Sum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Backup",
+      "metric_name": "SnapshotStorageUsed",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Backup",
+      "metric_name": "BackupRetentionPeriodStorageUsed",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/Route53",
+      "metric_name": "DNSResolutionTime",
+      "statistic": "Average",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/SQS",
+      "metric_name": "ApproximateNumberOfMessagesVisible",
+      "statistic": "Maximum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/SQS",
+      "metric_name": "ApproximateAgeOfOldestMessage",
+      "statistic": "Maximum",
+      "category": "performance"
+    },
+    {
+      "namespace": "AWS/SQS",
+      "metric_name": "NumberOfMessagesDeleted",
+      "statistic": "Sum",
+      "category": "performance"
+    }
+  ]
+}

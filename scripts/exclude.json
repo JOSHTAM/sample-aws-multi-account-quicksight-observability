@@ -1,0 +1,57 @@
+[
+  {
+    "namespace": "AWS/Lambda",
+    "metrics": ".*",
+    "FunctionName": ["CreateCustomCloudwatchMetrics.*", "clm-central-logging.*", "clm-.*"]
+  },
+  {
+    "namespace": "AWS/Lambda",
+    "metrics": ".*",
+    "Resource": ".*"
+  },
+  {
+    "namespace": "AWS/.*",
+    "metrics": ".*",
+    "EmptyDimensions": true
+  },
+  {
+    "namespace": "AWS/.*",
+    "metrics": ".*",
+    "AvailabilityZone": ".*"
+  },
+  {
+    "namespace": "AWS/EC2",
+    "metrics": ".*",
+    "ImageId": ".*"
+  },
+  {
+    "namespace": "AWS/EC2",
+    "metrics": ".*",
+    "InstanceType": ".*"
+  },
+  {
+    "namespace": "AWS/ApiGateway",
+    "metrics": ".*",
+    "Stage": ".*"
+  },
+  {
+    "namespace": "AWS/Logs",
+    "metrics": ".*",
+    "LogGroupName": ["CreateCustomCloudwatchMetrics.*", "clm-central-logging.*", "clm-pac.*"]
+  },
+  {
+    "namespace": "AWS/RDS",
+    "metrics": ".*",
+    "DatabaseClass": ".*"
+  },
+  {
+    "namespace": "AWS/RDS",
+    "metrics": ".*",
+    "EngineName": ".*"
+  },
+  {
+    "namespace": "AWS/RDS",
+    "metrics": ".*",
+    "Role": ".*"
+  }
+]

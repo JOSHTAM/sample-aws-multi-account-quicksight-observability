@@ -1,0 +1,701 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Multi Account Observability - Sender Account with Lambda function that hthat extracts relevant data from this account and sends it to the Analytics account for metric aggregation. Eventbridge configured to run every day at 0200
+Metadata:
+  cfn_nag:
+    rules_to_suppress:
+      - id: W11
+        reason: "AWS APIs don't support resource-level permissions"
+      - id: W13
+        reason: "Required for multi-service data collection"
+      - id: W89
+        reason: "Lambda doesn't require VPC for S3/API access"
+        
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Section 1: Analytics Account Configuration"
+        Parameters:
+          - AnalyticsAccount
+          - S3Bucket
+          - AnalyticsKMSKey
+      - Label:
+          default: "Section 2: Your Account Information"
+        Parameters:
+          - Environment
+          - Category
+          - CustomerName
+          - PartnerName
+          - ProductName
+    ParameterLabels:
+      AnalyticsAccount:
+        default: "1.1 Analytics Account ID (from Analytics stack outputs)"
+      S3Bucket:
+        default: "1.2 S3 Bucket Name (from Analytics stack outputs)"
+      AnalyticsKMSKey:
+        default: "1.3 Analytics KMS Key ARN (from Analytics stack outputs)"
+      Environment:
+        default: "2.1 Environment Type"
+      Category:
+        default: "2.2 Category"
+      CustomerName:
+        default: "2.3 Customer/Business Name"
+      PartnerName:
+        default: "2.4 Partner/Department Name"
+      ProductName:
+        default: "2.5 Product/Workload Name"
+
+Parameters:
+  AnalyticsAccount:
+    Type: String
+    Default: 'ANALYTICS_ACCOUNT_ID'
+    Description: Analytics Account ID
+    
+  S3Bucket:
+    Type: String
+    Default: 'ANALYTICS_ACCOUNT_VIEW360_BUCKET'
+    Description: S3 bucket for storing data
+    
+  AnalyticsKMSKey:
+    Type: String
+    Default: 'ANALYTICS_ACCOUNT_VIEW360_KMS_KEY_ARN'
+    Description: Analytics account KMS key ARN for S3 encryption
+
+  CustomerName:
+    Type: String
+    Default: ""
+    Description: Customer name for external accounts or Business Unit name for internal accounts
+    
+  PartnerName:
+    Type: String
+    Default: ""
+    Description: Specify the managing partner name for externally managed accounts or the department name for internal business unit accounts
+
+  ProductName:
+    Type: String
+    Default: ""
+    Description: Name of the Product/Workload/Application that is currently running in this account. If there are multiple of them split them by comma's (,). e.g Product A, Product B
+  
+  Environment:
+    Type: String
+    Default: "PRODUCTION"
+    AllowedValues:
+      - "PRODUCTION"
+      - "STAGING"
+      - "TEST"
+      - "UAT"
+      - "DEVELOPMENT"
+    Description: Environment type for the account
+  
+  Category:
+    Type: String
+    Default: "Both"
+    AllowedValues:
+      - "Both"
+      - "Internet"
+      - "Intranet"
+    Description: Classify whether the account is facing the Internet, Intranet or Both
+
+Resources:
+  A360DLQ:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      # Removed QueueName to allow CloudFormation to generate a name
+      KmsMasterKeyId: alias/aws/sqs
+
+  A360SenderPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: "Multi-service data collection requires wildcard for AWS APIs"
+      checkov:
+        skip:
+          - id: "CKV_AWS_111"
+            comment: "Multi-service data collection requires wildcard for AWS APIs"
+    Properties:
+      # Removed ManagedPolicyName to allow CloudFormation to generate a name
+      Description: Policy for A360 Sender Lambda function
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3BucketAccess
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+          - Sid: S3ObjectAccess
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}/data/*
+          - Sid: S3ScriptReadOnly
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}/scripts/sender.py
+          - Sid: STSAccess
+            Effect: Allow
+            Action:
+              - sts:GetCallerIdentity
+            Resource: "*" # This is acceptable as GetCallerIdentity doesn't support resource-level permissions
+          - Sid: AccountAccess
+            Effect: Allow
+            Action:
+              - account:GetContactInformation
+              - account:GetAlternateContact
+              - account:GetAccountInformation
+              - account:GetPrimaryEmail
+              - account:GetRegionOptStatus
+              - account:ListRegions
+            Resource: !Sub "arn:aws:account::${AWS::AccountId}:account"
+          - Sid: CostExplorerAccess
+            Effect: Allow
+            Action:
+              - ce:GetCostAndUsage
+              - ce:GetCostForecast
+              - ce:GetAnomalies
+              - ce:GetAnomalyMonitors
+              - ce:GetCostCategories
+              - ce:GetDimensionValues
+              - ce:GetPreferences
+            Resource: "*" # Cost Explorer APIs don't support resource-level permissions
+          - Sid: ConfigAccess
+            Effect: Allow
+            Action:
+              - config:GetResourceConfigHistory
+              - config:SelectResourceConfig
+              - config:DescribeConfigurationRecorders
+              - config:DescribeConfigurationRecorderStatus
+              - config:DescribeConfigRules
+              - config:GetComplianceDetailsByConfigRule
+              - config:DescribeComplianceByConfigRule
+              - config:DescribeConformancePacks
+              - config:DescribeConformancePackStatus
+              - config:GetConformancePackComplianceDetails,
+              - config:DescribeConformancePackCompliance
+            Resource: "*"
+          - Sid: SecurityHubAccess
+            Effect: Allow
+            Action:
+              - securityhub:GetFindings
+              - securityhub:DescribeHub
+              - securityhub:GetEnabledStandards
+              - securityhub:ListConfigurationPolicies
+            Resource: "*"
+          - Sid: GuardDutyAccess
+            Effect: Allow
+            Action:
+              - guardduty:ListDetectors
+              - guardduty:ListFindings
+              - guardduty:GetFindings
+            Resource: "*"
+          - Sid: IAMAccess
+            Effect: Allow
+            Action:
+              - iam:ListUsers
+              - iam:ListRoles
+              - iam:ListPolicies
+              - iam:ListMFADevices
+              - iam:ListAccessKeys
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:*"
+          - Sid: KMSAccess
+            Effect: Allow
+            Action:
+              - kms:ListKeys
+              - kms:DescribeKey
+              - kms:GetKeyRotationStatus
+            Resource: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*"
+          - Sid: KMSDecryptAccess
+            Effect: Allow
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+            Resource: 
+              - !Ref AnalyticsKMSKey
+              - "arn:aws:kms:*:*:alias/aws/sqs"
+          - Sid: KMSEncryptAccess
+            Effect: Allow
+            Action:
+              - kms:Encrypt
+              - kms:GenerateDataKey
+              - kms:GenerateDataKeyWithoutPlaintext
+              - kms:ReEncrypt*
+            Resource: !Ref AnalyticsKMSKey
+          - Sid: WAFAccess
+            Effect: Allow
+            Action:
+              - wafv2:ListWebACLs
+              - wafv2:GetWebACL
+              - wafv2:ListResourcesForWebACL
+              - wafv2:GetLoggingConfiguration
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: 
+                  - !Ref AWS::Region
+                  - "us-east-1"
+          - Sid: CloudTrailAccess
+            Effect: Allow
+            Action:
+              - cloudtrail:DescribeTrails
+              - cloudtrail:GetTrailStatus
+              - cloudtrail:LookupEvents
+            Resource: "*"
+          - Sid: SecretsManagerAccess
+            Effect: Allow
+            Action:
+              - secretsmanager:ListSecrets
+              - secretsmanager:DescribeSecret
+            Resource: "*"
+          - Sid: CertificateManagerAccess
+            Effect: Allow
+            Action:
+              - acm:ListCertificates
+              - acm:DescribeCertificate
+            Resource: "*"
+          - Sid: InspectorAccess
+            Effect: Allow
+            Action:
+              - inspector2:ListFindings
+            Resource: "*"
+          - Sid: SSMAccess
+            Effect: Allow
+            Action:
+              - ssm:DescribeInstanceInformation
+              - ssm:GetInventory
+              - ssm:DescribeInstancePatches
+              - ssm:ListInventoryEntries
+            Resource: "*"
+          - Sid: SupportAccess
+            Effect: Allow
+            Action:
+              - support:DescribeTrustedAdvisorChecks
+              - support:DescribeTrustedAdvisorCheckResult
+              - support:DescribeCases
+            Resource: "*"
+          - Sid: ApplicationSignalsAccess
+            Effect: Allow
+            Action:
+              - application-signals:ListServices
+            Resource: "*"
+          - Sid: SQSAccess
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt A360DLQ.Arn
+          - Sid: CloudWatchAlarmsAccess
+            Effect: Allow
+            Action:
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:DescribeAlarmHistory
+            Resource: "*"
+          - Sid: SyntheticsAccess
+            Effect: Allow
+            Action:
+              - synthetics:DescribeCanaries
+              - synthetics:GetCanaryRuns
+            Resource: "*"
+          - Sid: CloudWatchLogsInsightsAccess
+            Effect: Allow
+            Action:
+              - logs:StartQuery
+              - logs:GetQueryResults
+              - logs:DescribeLogGroups
+            Resource: "*"
+          - Sid: PerformanceInsightsAccess
+            Effect: Allow
+            Action:
+              - pi:GetResourceMetrics
+              - pi:DescribeDimensionKeys
+            Resource: "*"
+          - Sid: CloudWatchMetricsAccess
+            Effect: Allow
+            Action:
+              - cloudwatch:GetMetricData
+              - cloudwatch:ListMetrics
+            Resource: "*"
+          - Sid: RDSEventsAccess
+            Effect: Allow
+            Action:
+              - rds:DescribeEvents
+            Resource: "*"
+  
+  A360SenderResourcePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: "Cost Explorer APIs don't support resource-level permissions"
+      checkov:
+        skip:
+          - id: "CKV_AWS_111"
+            comment: "Cost Explorer APIs require wildcard"
+    Properties:
+      Description: Cost and Reservation policy for A360 Sender
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ResilienceHubAccess
+            Effect: Allow
+            Action:
+              - resiliencehub:ListApps
+              - resiliencehub:DescribeApp
+              - resiliencehub:DescribeResiliencyPolicy
+              - resiliencehub:ListTestRecommendations
+              - resiliencehub:DescribeAppVersionResourcesResolutionStatus
+            Resource: "*"
+          - Sid: HealthAccess
+            Effect: Allow
+            Action:
+              - health:DescribeEvents
+              - health:DescribeEventDetails
+              - health:DescribeAffectedEntities
+            Resource: "*"
+          - Sid: MarketplaceAccess
+            Effect: Allow
+            Action:
+              - aws-marketplace:GetEntitlements
+            Resource: "*"
+          - Sid: EC2Access
+            Effect: Allow
+            Action:
+              - ec2:DescribeRegions
+              - ec2:DescribeInstances
+              - ec2:DescribeVolumes
+              - ec2:DescribeSubnets
+            Resource: "*"
+          - Sid: EC2ServiceResourcesAccess
+            Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeVolumes
+              - ec2:DescribeSubnets
+            Resource: "*"
+          - Sid: RDSAccess
+            Effect: Allow
+            Action:
+              - rds:DescribeDBInstances
+            Resource: "*"
+          - Sid: S3Access
+            Effect: Allow
+            Action:
+              - s3:ListAllMyBuckets
+            Resource: "*"
+          - Sid: ELBAccess
+            Effect: Allow
+            Action:
+              - elasticloadbalancing:DescribeLoadBalancers
+            Resource: "*"
+          - Sid: AutoScalingAccess
+            Effect: Allow
+            Action:
+              - autoscaling:DescribeAutoScalingGroups
+            Resource: "*"
+          - Sid: LambdaAccess
+            Effect: Allow
+            Action:
+              - lambda:ListFunctions
+              - lambda:ListProvisionedConcurrencyConfigs
+            Resource: "*"
+          - Sid: ComputeOptimizerAccess
+            Effect: Allow
+            Action:
+              - compute-optimizer:GetEC2InstanceRecommendations
+              - compute-optimizer:GetEBSVolumeRecommendations
+              - compute-optimizer:GetLambdaFunctionRecommendations
+            Resource: "*"
+          - Sid: ReservationAccess
+            Effect: Allow
+            Action:
+              - ce:GetReservationUtilization
+              - ce:GetReservationCoverage
+              - ce:GetReservationPurchaseRecommendation
+              - ce:GetSavingsPlansCoverage
+              - ce:GetSavingsPlansUtilization
+              - ce:GetSavingsPlansPurchaseRecommendation
+            Resource: "*"
+          - Sid: EC2ReservationAccess
+            Effect: Allow
+            Action:
+              - ec2:DescribeReservedInstances
+            Resource: "*"
+          - Sid: RDSReservationAccess
+            Effect: Allow
+            Action:
+              - rds:DescribeReservedDBInstances
+            Resource: "*"
+          - Sid: SavingsPlansAccess
+            Effect: Allow
+            Action:
+              - savingsplans:DescribeSavingsPlans
+            Resource: "*"
+
+          - Sid: LogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: 
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/A360-sender*"
+
+  A360SenderCostPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: "Cost Explorer APIs don't support resource-level permissions"
+      checkov:
+        skip:
+          - id: "CKV_AWS_111"
+            comment: "Cost Explorer APIs require wildcard"
+    Properties:
+      Description: Cost and Reservation policy for A360 Sender
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CostExplorerAccess
+            Effect: Allow
+            Action:
+              - ce:GetCostAndUsage
+              - ce:GetCostForecast
+              - ce:GetAnomalies
+              - ce:GetAnomalyMonitors
+              - ce:GetCostCategories
+              - ce:GetDimensionValues
+              - ce:GetPreferences
+              - ce:GetReservationUtilization
+              - ce:GetReservationCoverage
+              - ce:GetReservationPurchaseRecommendation
+              - ce:GetSavingsPlansCoverage
+              - ce:GetSavingsPlansUtilization
+              - ce:GetSavingsPlansPurchaseRecommendation
+            Resource: "*"
+          - Sid: EC2ReservationAccess
+            Effect: Allow
+            Action:
+              - ec2:DescribeReservedInstances
+            Resource: "*"
+          - Sid: RDSReservationAccess
+            Effect: Allow
+            Action:
+              - rds:DescribeReservedDBInstances
+            Resource: "*"
+          - Sid: SavingsPlansAccess
+            Effect: Allow
+            Action:
+              - savingsplans:DescribeSavingsPlans
+            Resource: "*"
+          - Sid: ComputeOptimizerAccess
+            Effect: Allow
+            Action:
+              - compute-optimizer:GetEC2InstanceRecommendations
+              - compute-optimizer:GetEBSVolumeRecommendations
+              - compute-optimizer:GetLambdaFunctionRecommendations
+            Resource: "*"
+
+  A360LambdaSenderRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      # Removed RoleName to allow CloudFormation to generate a name
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref A360SenderPolicy
+        - !Ref A360SenderCostPolicy
+        - !Ref A360SenderResourcePolicy
+
+  LambdaKMSKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: KMS key for Lambda environment variables
+      EnableKeyRotation: true
+      KeyPolicy:
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+            Resource: '*'
+
+  LambdaKMSKeyAlias:
+    Type: 'AWS::KMS::Alias'
+    Properties:
+      AliasName: alias/A360-lambda-env
+      TargetKeyId: !Ref LambdaKMSKey
+
+  A360SenderFunction:
+    Type: 'AWS::Lambda::Function'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "Sender doesn't require VPC for S3/API access"
+      checkov:
+        skip:
+          - id: "CKV_AWS_117"
+            comment: "Sender doesn't require VPC for S3/API access"
+    Properties:
+      # Removed FunctionName to allow CloudFormation to generate a name
+      Handler: index.lambda_handler
+      Role: !GetAtt A360LambdaSenderRole.Arn
+      DeadLetterConfig:
+        TargetArn: !GetAtt A360DLQ.Arn
+      KmsKeyArn: !GetAtt LambdaKMSKey.Arn
+      Environment:
+        Variables:
+          REGION: !Ref AWS::Region
+          BUCKET: !Ref S3Bucket
+          ANALYTICS_KMS_KEY: !Ref AnalyticsKMSKey
+          CUSTOMER: !Ref CustomerName
+          PARTNER: !Ref PartnerName
+          CATEGORY: !Ref Category
+          ENVIRONMENT: !Ref Environment
+          PRODUCT: !Ref ProductName
+          ERROR_LOG_GROUPS: ""
+      Code:
+        ZipFile: |
+          import boto3
+          import tempfile
+          import importlib.util
+          import sys
+          import os
+          from typing import Any, Dict
+
+          BUCKET = os.environ.get("BUCKET")
+
+          def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+              bucket_name = BUCKET
+              script_key = 'scripts/sender.py' #Uncomment this line to trigger the sender.py
+              
+              s3_client = boto3.client('s3')
+              response = s3_client.get_object(Bucket=bucket_name, Key=script_key)
+              script_content = response['Body'].read().decode('utf-8')
+              
+              # Write to temporary file and import securely
+              with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+                  temp_file.write(script_content)
+                  temp_file.flush()
+                  temp_file_path = temp_file.name
+              
+              try:
+                  spec = importlib.util.spec_from_file_location("dynamic_module", temp_file_path)
+                  module = importlib.util.module_from_spec(spec)
+                  sys.modules[spec.name] = module
+                  spec.loader.exec_module(module)
+                  
+                  result = module.lambda_handler(event, context)
+                  return result
+              finally:
+                  os.unlink(temp_file_path)
+      Runtime: python3.13
+      Timeout: 900
+      MemorySize: 3008
+
+  LambdaScheduleRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Description: Trigger Lambda function every morning at 01:00 AM
+      ScheduleExpression: cron(0 1 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt A360SenderFunction.Arn
+          Id: A360SenderTarget
+
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref A360SenderFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt LambdaScheduleRule.Arn
+
+  # EventBridge rule for near-real-time alarm notifications
+  A360AlarmEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Forward CloudWatch Alarm state changes to Analytics hub
+      EventPattern:
+        source:
+          - aws.cloudwatch
+        detail-type:
+          - "CloudWatch Alarm State Change"
+        detail:
+          state:
+            value:
+              - ALARM
+      State: ENABLED
+      Targets:
+        - Arn: !Sub "arn:aws:events:${AWS::Region}:${AnalyticsAccount}:event-bus/executive-alerts-bus"
+          Id: AlertProcessorTarget
+          RoleArn: !GetAtt A360EventBridgeRole.Arn
+
+  A360EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgeCrossAccountPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AnalyticsAccount}:event-bus/executive-alerts-bus"
+
+  A360EventBridgeDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId: alias/aws/sqs
+
+Outputs:
+  Region:
+    Description: Region of this implementation
+    Value: !Ref AWS::Region
+    Export:
+      Name: !Sub "${AWS::StackName}-Region"
+
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt A360SenderFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-LambdaArn"
+  
+  LambdaRoleArn:
+    Description: ARN of the Lambda execution role
+    Value: !GetAtt A360LambdaSenderRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleArn"
+  
+  PolicyArn:
+    Description: ARN of the custom policy
+    Value: !Ref A360SenderPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-PolicyArn"

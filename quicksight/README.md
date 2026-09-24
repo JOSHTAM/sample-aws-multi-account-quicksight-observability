@@ -1,0 +1,57 @@
+# QuickSight Dashboard Assets
+
+This folder contains an exported, ready-to-import copy of the **View 360 Observability
+Dashboard** so that a fresh deployment reproduces the exact same dashboard — layout,
+calculated fields, filters, and conditional formatting — that ships with this solution.
+
+The dashboard has three sheets out of the box:
+
+| Sheet | Purpose |
+|-------|---------|
+| **Overview** | Cross-system health scores, availability, alarms, warnings, and account summary for every monitored system. |
+| **System A** | Per-system drill-down: critical/high/medium alarms, alarm frequency, active alarms table, and synthetic-canary availability. |
+| **System B** | A second per-system sheet, provided as the template you duplicate when onboarding additional systems (see the onboarding guide). |
+
+> The dashboard is data-driven. On a fresh deployment every table is empty, so the
+> dashboard renders zeros/blank until your sender and collector Lambdas begin writing
+> your own accounts' real data. **No sample or synthetic data is shipped.**
+
+## Files
+
+| File | What it is |
+|------|-----------|
+| `../quicksuite/A360-Sample-Template.qs` | The QuickSight asset bundle (analysis + 20 datasets + data source + VPC connection) in QuickSight-JSON (`.qs`) format. This is what the `A360-QS-Migration.yaml` migration Lambda imports. **This is the primary, supported provisioning path** and matches the documented deployment steps. |
+| `quicksight-dashboard.template.json` | The same assets exported as a **CloudFormation** template (QuickSight asset-bundle format). Provided as an infrastructure-as-code alternative for teams that prefer to provision the dashboard via a CloudFormation stack. |
+| `analysis-definition.json` | The raw analysis definition (all visuals, sheets, calculated fields, filters). Reference material for customizing the dashboard or rebuilding sheets by hand. |
+
+All three are genericized: no real account IDs, no real ARNs, no customer/agency names.
+Placeholder values you must replace are written as `REPLACE_WITH_YOUR_...`,
+`111111111111` / `222222222222` (source / hub account), or `123456789012`.
+
+## Provisioning options
+
+### Option 1 (recommended) — migration Lambda + `.qs`
+
+This is the path described in the main
+[deployment guide](../docs/option-a-serverless-deployment.md#step-7-migrate-analysis).
+In short:
+
+1. Deploy the analytics hub (`cloudformation/A360-Analytics.yaml`).
+2. Upload the `quicksuite/` and `scripts/` folders to the analytics S3 bucket.
+3. Create a QuickSight data source pointing at your Aurora cluster (database `core`).
+4. Deploy `cloudformation/A360-QS-Migration.yaml`, pointing `S3Uri` at
+   `s3://<your-bucket>/quicksuite/A360-Sample-Template.qs`.
+5. Run the migration Lambda's **Test** action. It imports the analysis and re-points every
+   dataset at your own Aurora data source.
+
+### Option 2 — CloudFormation asset bundle
+
+If you prefer pure IaC, deploy `quicksight-dashboard.template.json` as a CloudFormation
+stack. Provide your own values for the parameters (VPC connection subnets, security group,
+and Aurora secret ARN) — these ship without defaults on purpose.
+
+## Adding a sheet for a new system
+
+When you onboard a new source account/system, duplicate the **System A** (or **System B**)
+sheet and re-point its filter to the new system. Full step-by-step instructions are in the
+[onboarding guide](../docs/onboarding-a-new-system.md).

@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Build artifacts / packaging
+*.zip
+build/
+dist/
+node_modules/
+cdk.out/
+.cache/
+
+# Logs
+*.log
