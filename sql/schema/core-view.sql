@@ -1417,3 +1417,162 @@ GROUP BY
     acc.id, acc.account_id, acc.region, acc.account_name, acc.account_type,
     acc.category, acc.account_status, acc.partner_name, acc.customer_name,
     p.name;
+
+
+--49. Canary status view (auto-populated from real Synthetics data)
+-- Backs the dashboard "canary_status" dataset. One row per canary, joined to its
+-- latest run and its owning system (product). Replaces the previously hand-seeded
+-- canary_status table so the availability tiles reflect real collected data.
+CREATE OR REPLACE VIEW canary_status AS
+SELECT
+    c.id                                            AS id,
+    c.canary_name                                   AS canary_name,
+    a.account_id                                    AS account_id,
+    p.name                                          AS system_name,
+    lr.run_status                                   AS last_run_status,
+    lr.run_at                                       AS last_run_time,
+    c.success_percentage                            AS success_percent,
+    lr.duration_ms                                  AS avg_duration_ms,
+    c.status                                         AS state,
+    c.failure_reason                                AS failure_reason,
+    c.endpoint_url                                  AS user_journey_description,
+    c.updated_at                                    AS updated_at
+FROM
+    canaries c
+    JOIN accounts a ON a.id = c.account_id
+    LEFT JOIN (
+        SELECT DISTINCT ON (account_id) account_id, product_id
+        FROM product_accounts
+        ORDER BY account_id, id
+    ) pa ON pa.account_id = c.account_id
+    LEFT JOIN products p ON p.id = pa.product_id
+    LEFT JOIN LATERAL (
+        SELECT run_status, run_at, duration_ms
+        FROM canary_runs cr
+        WHERE cr.canary_id = c.id
+        ORDER BY cr.run_at DESC
+        LIMIT 1
+    ) lr ON TRUE;
+
+--50. System health overview (auto-populated composite per-system health rollup)
+-- Backs the dashboard "system_health_overview" dataset that drives the Overview
+-- sheet health-score cards. One row per system (product), computed live from the
+-- real collected data: alarms, security findings, canaries, and cost. Replaces the
+-- previously hand-seeded system_health_overview table.
+--
+-- health_percentage is a weighted composite of:
+--   * alarm health      (share of monitored alarms not in ALARM state)
+--   * security health   (penalised by critical/high/medium findings)
+--   * canary health     (share of canaries passing their latest run)
+-- total_checks / passing_checks express the same as an absolute count so the
+-- dashboard can show "N/M" style labels.
+CREATE OR REPLACE VIEW system_health_overview AS
+WITH sys AS (
+    -- One system (product) per row, with the set of account ids that belong to it
+    SELECT
+        p.id                        AS product_id,
+        p.name                      AS system_name,
+        MIN(a.account_id)           AS account_id,   -- representative account for the system
+        ARRAY_AGG(DISTINCT a.id)    AS account_pks
+    FROM products p
+    JOIN product_accounts pa ON pa.product_id = p.id
+    JOIN accounts a ON a.id = pa.account_id
+    GROUP BY p.id, p.name
+),
+alarm_agg AS (
+    SELECT pa.product_id,
+        COUNT(*)                                                          AS alarm_total,
+        COUNT(*) FILTER (WHERE al.state = 'OK')                           AS alarm_ok,
+        COUNT(*) FILTER (WHERE al.state = 'ALARM' AND al.severity IN ('Medium','Low')) AS alarm_warning,
+        COUNT(*) FILTER (WHERE al.state = 'ALARM' AND al.severity IN ('Critical','High')) AS alarm_critical
+    FROM alarms al
+    JOIN product_accounts pa ON pa.account_id = al.account_id
+    GROUP BY pa.product_id
+),
+sec_agg AS (
+    SELECT pa.product_id,
+        COALESCE(SUM(s.critical_count),0) AS security_findings_critical,
+        COALESCE(SUM(s.high_count),0)     AS security_findings_high,
+        COALESCE(SUM(s.medium_count),0)   AS security_findings_medium
+    FROM security s
+    JOIN product_accounts pa ON pa.account_id = s.account_id
+    GROUP BY pa.product_id
+),
+canary_agg AS (
+    SELECT pa.product_id,
+        COUNT(*)                                        AS canary_total,
+        COUNT(*) FILTER (WHERE c.status = 'RUNNING' AND COALESCE(c.success_percentage,0) >= 100) AS canary_passing
+    FROM canaries c
+    JOIN product_accounts pa ON pa.account_id = c.account_id
+    GROUP BY pa.product_id
+),
+res_agg AS (
+    SELECT pa.product_id,
+        COUNT(*)                                              AS resource_total,
+        COUNT(*) FILTER (WHERE sr.state IN ('running','available','active','Online')) AS resource_healthy
+    FROM service_resources sr
+    JOIN product_accounts pa ON pa.account_id = sr.account_id
+    GROUP BY pa.product_id
+),
+cost_agg AS (
+    -- latest monthly cost per account, summed to the system
+    SELECT pa.product_id,
+        COALESCE(SUM(cr.current_period_cost),0)                                       AS monthly_cost,
+        CASE WHEN AVG(cr.cost_difference_percentage) > 0 THEN 'up'
+             WHEN AVG(cr.cost_difference_percentage) < 0 THEN 'down'
+             ELSE 'flat' END                                                          AS cost_trend
+    FROM (
+        SELECT DISTINCT ON (account_id) account_id, current_period_cost, cost_difference_percentage
+        FROM cost_reports
+        WHERE period_granularity = 'MONTHLY'
+        ORDER BY account_id, period_end DESC
+    ) cr
+    JOIN product_accounts pa ON pa.account_id = cr.account_id
+    GROUP BY pa.product_id
+)
+SELECT
+    sys.product_id                                              AS id,
+    sys.system_name                                             AS system_name,
+    sys.account_id                                              AS account_id,
+    -- total_checks = every discrete signal we evaluate; passing_checks = the healthy ones
+    (COALESCE(aa.alarm_total,0) + COALESCE(ca.canary_total,0) + COALESCE(ra.resource_total,0)) AS total_checks,
+    (COALESCE(aa.alarm_ok,0) + COALESCE(ca.canary_passing,0) + COALESCE(ra.resource_healthy,0)) AS passing_checks,
+    -- weighted composite health percentage (0-100), robust to missing categories
+    ROUND(
+        100.0 * (
+              0.5 * (CASE WHEN COALESCE(aa.alarm_total,0) = 0 THEN 1
+                          ELSE COALESCE(aa.alarm_ok,0)::numeric / aa.alarm_total END)
+            + 0.3 * (CASE WHEN (COALESCE(sa.security_findings_critical,0)
+                                 + COALESCE(sa.security_findings_high,0)
+                                 + COALESCE(sa.security_findings_medium,0)) = 0 THEN 1
+                          ELSE GREATEST(0, 1 - (
+                                 (3*COALESCE(sa.security_findings_critical,0)
+                                 + 2*COALESCE(sa.security_findings_high,0)
+                                 + COALESCE(sa.security_findings_medium,0))::numeric
+                                 / NULLIF(10 * GREATEST(1, array_length(sys.account_pks,1)),0))) END)
+            + 0.2 * (CASE WHEN COALESCE(ca.canary_total,0) = 0 THEN 1
+                          ELSE COALESCE(ca.canary_passing,0)::numeric / ca.canary_total END)
+        ), 1)                                                   AS health_percentage,
+    COALESCE(aa.alarm_total,0)                                  AS alarm_total,
+    COALESCE(aa.alarm_ok,0)                                     AS alarm_ok,
+    COALESCE(aa.alarm_warning,0)                                AS alarm_warning,
+    COALESCE(aa.alarm_critical,0)                               AS alarm_critical,
+    COALESCE(sa.security_findings_critical,0)                   AS security_findings_critical,
+    COALESCE(sa.security_findings_high,0)                       AS security_findings_high,
+    COALESCE(sa.security_findings_medium,0)                     AS security_findings_medium,
+    COALESCE(ra.resource_total,0)                               AS resource_total,
+    COALESCE(ra.resource_healthy,0)                             AS resource_healthy,
+    -- performance signal is derived from resources for now (no separate perf table)
+    COALESCE(ra.resource_total,0)                               AS performance_total,
+    COALESCE(ra.resource_healthy,0)                             AS performance_healthy,
+    COALESCE(co.monthly_cost,0)                                 AS monthly_cost,
+    COALESCE(co.cost_trend,'flat')                              AS cost_trend,
+    NOW()                                                       AS last_updated,
+    COALESCE(ca.canary_total,0)                                 AS canary_total,
+    COALESCE(ca.canary_passing,0)                               AS canary_passing
+FROM sys
+    LEFT JOIN alarm_agg  aa ON aa.product_id = sys.product_id
+    LEFT JOIN sec_agg    sa ON sa.product_id = sys.product_id
+    LEFT JOIN canary_agg ca ON ca.product_id = sys.product_id
+    LEFT JOIN res_agg    ra ON ra.product_id = sys.product_id
+    LEFT JOIN cost_agg   co ON co.product_id = sys.product_id;
