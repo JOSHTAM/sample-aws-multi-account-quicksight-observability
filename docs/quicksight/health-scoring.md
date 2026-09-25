@@ -241,9 +241,12 @@ QuickSight console (no code) or in the JSON (version-controlled).
   `health_percentage` with `SUM`. Because a card sees exactly one row, `SUM` equals
   that system's score. Do **not** point a single card at multiple systems, or the
   `SUM` will exceed 100 and break the colour logic.
-- **Adding a new system** means duplicating a card and re-scoping its filter — see
-  [onboarding-a-new-system.md](../onboarding-a-new-system.md). The card titles
-  ("System A", "System B", …) are hard-coded rich text, not data-driven.
+- **Adding a new system** means pointing an Overview card at it (rename the title,
+  re-point every tile's `system_name` filter) and duplicating the **System A** detail
+  sheet — see [onboarding-a-new-system.md](../onboarding-a-new-system.md), especially
+  [what auto-populates vs. what you configure](../onboarding-a-new-system.md#what-auto-populates-vs-what-you-configure-by-hand).
+  The card titles ("System A" … "System F") are hard-coded rich text, not data-driven, and
+  each tile carries its own `system_name` filter set to a placeholder value.
 - **The colour bands are duplicated per card** in the JSON. If you change them in
   JSON, change every card; the console lets you do them one at a time.
 - **No synthetic data.** Every field above is computed live from collected data.

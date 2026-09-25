@@ -4,13 +4,17 @@ This folder contains an exported, ready-to-import copy of the **View 360 Observa
 Dashboard** so that a fresh deployment reproduces the exact same dashboard — layout,
 calculated fields, filters, and conditional formatting — that ships with this solution.
 
-The dashboard has three sheets out of the box:
+The dashboard has two sheets out of the box:
 
 | Sheet | Purpose |
 |-------|---------|
 | **Overview** | Cross-system health scores, availability, alarms, warnings, and account summary for every monitored system. **How every tile is calculated — and how to reconfigure the score, bands, colours, and icons — is documented in [docs/quicksight/health-scoring.md](../docs/quicksight/health-scoring.md).** |
-| **System A** | Per-system drill-down: critical/high/medium alarms, alarm frequency, active alarms table, and synthetic-canary availability. |
-| **System B** | A second per-system sheet, provided as the template you duplicate when onboarding additional systems (see the onboarding guide). |
+| **System A** | Per-system drill-down: critical/high/medium alarms, alarm frequency, active alarms table, and synthetic-canary availability. This is also the **template** you duplicate when onboarding additional systems (see the onboarding guide). |
+
+> The Overview ships with 6 placeholder system slots (**System A … System F**) and one
+> detail sheet (**System A**). The system **names** and the per-visual **filters** are
+> placeholders you point at your real systems — see
+> [what auto-populates vs. what you configure](../docs/onboarding-a-new-system.md#what-auto-populates-vs-what-you-configure-by-hand).
 
 > The dashboard is data-driven. On a fresh deployment every table is empty, so the
 > dashboard renders zeros/blank until your sender and collector Lambdas begin writing
@@ -56,6 +60,8 @@ and Aurora secret ARN) — these ship without defaults on purpose.
 
 ## Adding a sheet for a new system
 
-When you onboard a new source account/system, duplicate the **System A** (or **System B**)
-sheet and re-point its filter to the new system. Full step-by-step instructions are in the
+When you onboard a new source account/system, point its **Overview card** (rename the
+title, re-point each tile's `system_name` filter) and duplicate the **System A** sheet for
+its detail view, re-pointing the filters. Full step-by-step instructions — including which
+parts auto-populate and which are manual placeholders — are in the
 [onboarding guide](../docs/onboarding-a-new-system.md).
