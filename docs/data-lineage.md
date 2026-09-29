@@ -123,11 +123,11 @@ about it.
 ### Path A — S3 batch (the main path, backs almost every dashboard tile)
 
 ```
-member account                         hub account
-┌──────────────┐   JSON    ┌────────┐   read   ┌───────────┐  upsert  ┌────────────┐
-│  sender.py   │ ────────> │  S3    │ ───────> │ receiver.py│ ───────> │  Aurora     │
-│ (per account)│  to S3    │ bucket │  trigger │  (hub)     │  tables  │  base tables│
-└──────────────┘           └────────┘          └───────────┘          └────────────┘
+  member account                              hub account
+┌────────────────┐  JSON   ┌──────────┐  read   ┌──────────────┐ upsert  ┌────────────────┐
+│   sender.py    │ ──────> │    S3    │ ──────> │  receiver.py │ ──────> │     Aurora     │
+│  (per account) │ to S3   │  bucket  │ trigger │    (hub)     │ tables  │   base tables  │
+└────────────────┘         └──────────┘         └──────────────┘         └────────────────┘
 ```
 
 - **`sender.py`** runs in each member (source) account on a schedule, calls AWS
@@ -139,10 +139,10 @@ member account                         hub account
 ### Path B — RDS Data API direct (real-time metrics)
 
 ```
-┌───────────────────┐  cloudwatch:GetMetricData   INSERT    ┌───────────────────────────┐
-│ metric_collector.py│ ──────(cross-account OAM)──────────> │ cloudwatch_metrics /        │
-│ (hub, every 5 min) │                                      │ alarm_states (partitioned)  │
-└───────────────────┘                                       └───────────────────────────┘
+┌──────────────────────┐  cloudwatch:GetMetricData  INSERT   ┌─────────────────────────────┐
+│  metric_collector.py │ ──────(cross-account OAM)─────────> │  cloudwatch_metrics /       │
+│  (hub, every 5 min)  │                                     │  alarm_states (partitioned) │
+└──────────────────────┘                                     └─────────────────────────────┘
 ```
 
 - **`metric_collector.py`** runs in the hub every 5 minutes, reads CloudWatch
