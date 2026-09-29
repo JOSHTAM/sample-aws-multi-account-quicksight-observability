@@ -11929,9 +11929,24 @@
               "ContentType": "INTERACTIVE",
               "FilterControls": [
                 {
-                  "CrossSheet": {
+                  "Dropdown": {
                     "FilterControlId": "e64a6f21-1491-4e30-9e44-251b77fdd05f",
-                    "SourceFilterId": "6ba051b9-52d7-49b8-8f56-b0fe518bf3fe"
+                    "Title": "Alarm State",
+                    "SourceFilterId": "6ba051b9-52d7-49b8-8f56-b0fe518bf3fe",
+                    "DisplayOptions": {
+                      "SelectAllOptions": {
+                        "Visibility": "VISIBLE"
+                      },
+                      "TitleOptions": {
+                        "Visibility": "VISIBLE",
+                        "FontConfiguration": {
+                          "FontSize": {
+                            "Relative": "MEDIUM"
+                          }
+                        }
+                      }
+                    },
+                    "Type": "MULTI_SELECT"
                   }
                 }
               ],

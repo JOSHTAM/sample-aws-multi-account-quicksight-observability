@@ -24,6 +24,40 @@ The dashboard has two sheets out of the box:
 > [docs/quicksight/health-scoring.md](../docs/quicksight/health-scoring.md) for the
 > full scoring model and self-serve configuration guide.
 
+## Understanding "No data to display" tiles
+
+A tile that reads **"No data to display"** is almost always **correct behavior**, not a
+broken visual: it means the underlying table has no rows for the current filters. Each
+tile is fed by a specific collector, and a tile stays empty until that service is both
+**in use in the source account** and **collected by the sender**. This is expected and
+differs per environment.
+
+| Tile / section | Populates when the account has… | Empty is normal if… |
+|---|---|---|
+| System Availability (Canaries) | CloudWatch Synthetics canaries | no canaries are deployed |
+| AWS WAF Rules | WAF web ACLs / rules | WAF is not used |
+| AWS KMS | customer-managed KMS keys | only AWS-managed keys exist |
+| AWS Certificate Manager | ACM certificates | no ACM certs issued |
+| Patch Management / Systems Manager | SSM-managed instances & patch data | no SSM-managed instances |
+| Compliance Score & Trend / Configuration Drift | AWS Config **conformance-pack rules** | Config has 0 rules (score needs rules to divide by) |
+| Non-Compliant Resources | Config rule evaluations | Config rules report no non-compliant resources |
+| Error Summaries | CloudWatch Logs error patterns | no matching error logs in the window |
+
+**How to tell "empty" apart from "broken":** a *broken* visual shows **"Cannot access data
+for this visual"**, **"Fields for this visual no longer in analysis"**, or **"The dataset
+changed too much…"** — those indicate a field/column or dataset mismatch and should be
+fixed. **"No data to display / Data may be filtered out"** simply means zero rows. If you
+want to confirm a specific tile, query its backing table/view directly (e.g.
+`SELECT COUNT(*) FROM canaries;`) — zero rows means the tile is correctly empty.
+
+> **Ship-readiness note:** because this reference environment is a single test account
+> that does not use every AWS service, several tiles legitimately read "No data" here.
+> That is not a defect. In a customer environment those tiles fill in for whichever
+> services the customer actually runs. Before declaring a customer deployment "ready",
+> verify there are **no "Cannot access data" / "Fields no longer in analysis" errors**
+> (those are real), and treat "No data" tiles as a checklist of which collectors have
+> data yet.
+
 ## Files
 
 | File | What it is |
