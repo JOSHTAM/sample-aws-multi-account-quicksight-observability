@@ -71,6 +71,10 @@ This hub-spoke architecture enables centralized multi-account observability with
 | B | Source-account CloudWatch "Alarm State Change" events are forwarded to the hub's `executive-alerts-bus`, invoking the Alert Processor (severity classification, optional Slack) | Source → Hub |
 | C | A daily Data Retention Lambda prunes real-time rows older than the retention window | Hub |
 
+> **Where does each dashboard number come from?** For a complete, per-dataset trace —
+> AWS source API → collector Lambda → Aurora table → SQL view → QuickSight dataset →
+> visual — see the [Data Lineage guide](docs/data-lineage.md).
+
 ## Features
 
 - **Multi-Account Collection**: Aggregates data from multiple AWS accounts and regions across 15+ categories including AWS Cost Explorer, AWS Security Hub, Amazon GuardDuty, Amazon Inspector, AWS Config, AWS Systems Manager, AWS WAF, ACM, KMS, Secrets Manager, and (with a Business/Enterprise support plan) AWS Support / Trusted Advisor / Health.
@@ -210,6 +214,8 @@ This solution builds on the open-source [AWS Samples multi-account observability
 ### Resources
 - 📖 [Detailed Deployment Guide](docs/deployment-guide.md)
 - 🖥️ [QuickSight Dashboard Assets](quicksight/README.md)
+- 🔗 [Data Lineage (source → table → dataset → visual)](docs/data-lineage.md)
+- 📈 [Health Score & Overview Metrics](docs/quicksight/health-scoring.md)
 - ➕ [Onboarding a New System](docs/onboarding-a-new-system.md)
 - 🗺️ [Roadmap / Future Scope](docs/ROADMAP.md)
 - 🔧 [AWS API Documentation](docs/aws-api-documentation.md)

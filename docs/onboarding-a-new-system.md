@@ -54,8 +54,8 @@ These are **placeholders baked into the analysis layout** that QuickSight cannot
 from data, because the card titles are static text and each card is pinned to one system:
 
 1. **Overview card titles** — the bold "System A" … "System F" headings are **hard-coded
-   rich text** on each KPI card. Rename them to your real system names (e.g. *eLitigation*,
-   *Payments Platform*).
+   rich text** on each KPI card. Rename them to your real system names (e.g. *Payments
+   Platform*, *Customer Portal*).
 2. **Per-visual `system_name` filters** — every tile on the Overview (the KPI, Service
    Availability, Critical Alarms, Warnings, Health Score Label, Health Status Icon) and
    every visual on a detail sheet has its **own filter** that includes exactly one

@@ -176,7 +176,7 @@ Resources:
               - config:DescribeComplianceByConfigRule
               - config:DescribeConformancePacks
               - config:DescribeConformancePackStatus
-              - config:GetConformancePackComplianceDetails,
+              - config:GetConformancePackComplianceDetails
               - config:DescribeConformancePackCompliance
             Resource: "*"
           - Sid: SecurityHubAccess

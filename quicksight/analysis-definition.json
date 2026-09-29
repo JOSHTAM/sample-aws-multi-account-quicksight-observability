@@ -14440,41 +14440,6 @@
         "CrossDataset": "SINGLE_DATASET"
       },
       {
-        "FilterGroupId": "cd55caeb-6fd0-4f98-8b04-7f37ad9d2267",
-        "Filters": [
-          {
-            "CategoryFilter": {
-              "FilterId": "42452582-ca6e-4f24-afe2-5e6abe21401a",
-              "Column": {
-                "DataSetIdentifier": "alarms",
-                "ColumnName": "account_name"
-              },
-              "Configuration": {
-                "FilterListConfiguration": {
-                  "MatchOperator": "CONTAINS",
-                  "CategoryValues": [
-                    "joshtam-aiml"
-                  ],
-                  "NullOption": "NON_NULLS_ONLY"
-                }
-              }
-            }
-          }
-        ],
-        "ScopeConfiguration": {
-          "SelectedSheets": {
-            "SheetVisualScopingConfigurations": [
-              {
-                "SheetId": "a9fd5373-0741-4ab6-ae29-5f332f4d2e08",
-                "Scope": "ALL_VISUALS"
-              }
-            ]
-          }
-        },
-        "Status": "ENABLED",
-        "CrossDataset": "ALL_DATASETS"
-      },
-      {
         "FilterGroupId": "63f4e306-156f-4ff6-8c58-132212cac817",
         "Filters": [
           {
